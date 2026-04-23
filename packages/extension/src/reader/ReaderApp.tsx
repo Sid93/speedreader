@@ -2,6 +2,27 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { tokenize, getORP, createScheduler, type Scheduler } from "@speedreader/engine";
 import { extractArticle } from "@speedreader/extractors";
 import { saveDoc, saveProgress, getProgress, recordWords, type LibraryDoc } from "@speedreader/storage";
+import { bionicSplit } from "@speedreader/engine";
+
+type Mode = "rsvp" | "bionic";
+
+function BionicView({ text, fontSize }: { text: string; fontSize: number }) {
+  const paragraphs = text.split(/\n\s*\n/);
+  return (
+    <div className="bionic" style={{ fontSize }}>
+      {paragraphs.map((p, pi) => (
+        <p key={pi}>
+          {p.split(/\s+/).filter(Boolean).map((w, wi) => {
+            const { bold, rest } = bionicSplit(w);
+            return (
+              <span key={wi} className="bw"><b>{bold}</b><span>{rest}</span>{" "}</span>
+            );
+          })}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 const SPEED_PRESETS = [150, 300, 450, 600, 900];
 const STAGED_KEY = "sr.staged";
@@ -61,6 +82,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [skipPunct, setSkipPunct] = useState(true);
   const [showContext, setShowContext] = useState(true);
   const [chunkSize, setChunkSize] = useState(1);
+  const [mode, setMode] = useState<Mode>("rsvp");
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const indexRef = useRef(0);
@@ -158,20 +180,29 @@ function Player({ doc }: { doc: LibraryDoc }) {
         </div>
       </header>
 
+      <div className="mode-switch">
+        <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
+        <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
+      </div>
+
+      {mode === "bionic" ? (
+        <BionicView text={doc.text} fontSize={Math.max(14, Math.round(fontSize * 0.36))} />
+      ) : (
       <div className="reader">
-        <div className="word" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)) }}>
-          {chunk.map((w, i) => {
-            if (i === centerIdx) {
-              return (
-                <span key={i} className="chunk-word center">
-                  <span>{centerParts.before}</span>
-                  <span className="orp">{centerParts.orp}</span>
-                  <span>{centerParts.after}</span>
-                </span>
-              );
-            }
-            return <span key={i} className="chunk-word side">{w}</span>;
-          })}
+        <div className="word anchored" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)) }}>
+          <div className="half left">
+            {chunk.slice(0, centerIdx).map((w, i) => (
+              <span key={`L${i}`} className="chunk-word side">{w}</span>
+            ))}
+            {chunk[centerIdx] && <span className="chunk-word center">{centerParts.before}</span>}
+          </div>
+          <span className="orp anchor">{centerParts.orp || "·"}</span>
+          <div className="half right">
+            {chunk[centerIdx] && <span className="chunk-word center">{centerParts.after}</span>}
+            {chunk.slice(centerIdx + 1).map((w, i) => (
+              <span key={`R${i}`} className="chunk-word side">{w}</span>
+            ))}
+          </div>
         </div>
         {showContext && (
           <div className="context meta">
@@ -185,7 +216,14 @@ function Player({ doc }: { doc: LibraryDoc }) {
             <span className="meta">Word {index + 1} of {words.length.toLocaleString()}</span>
             <span className="meta">{minLeft > 0 ? `~${minLeft} min left` : "Almost done"}</span>
           </div>
-          <div className="progress"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+          <input
+            type="range"
+            className="scrubber"
+            min={0}
+            max={Math.max(0, words.length - 1)}
+            value={index}
+            onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
+          />
         </div>
         <div className="controls">
           <button onClick={() => { schedRef.current?.seek(0); setIsPlaying(false); }}>⏮</button>
@@ -195,7 +233,10 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <button onClick={() => schedRef.current?.seek(words.length - 1)}>⏭</button>
         </div>
       </div>
+      )}
 
+      {mode === "rsvp" && (
+      <>
       <div className="panel">
         <div className="panel-row">
           <strong>Speed</strong>
@@ -223,6 +264,8 @@ function Player({ doc }: { doc: LibraryDoc }) {
           ))}
         </div>
       </div>
+      </>
+      )}
 
       <div className="panel">
         <div className="panel-row"><strong>Display</strong></div>

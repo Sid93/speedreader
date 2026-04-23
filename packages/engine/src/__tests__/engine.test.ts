@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { tokenize, isPunctuationOnly, getORP, createScheduler } from "../index.js";
+import { tokenize, isPunctuationOnly, getORP, createScheduler, bionicSplit } from "../index.js";
 
 describe("tokenize", () => {
   it("splits on whitespace and drops empties", () => {
@@ -25,6 +25,23 @@ describe("getORP", () => {
   it("puts ORP at ~30% of length", () => {
     expect(getORP("reading").before.length).toBe(2); // floor(7*0.3)=2
     expect(getORP("a").before.length).toBe(0);
+  });
+});
+
+describe("bionicSplit", () => {
+  it("bolds first ~45% of letters, round-ceiling on mid lengths", () => {
+    expect(bionicSplit("reading")).toEqual({ bold: "rea", rest: "ding" }); // ceil(7*.45)=4 actually
+  });
+  it("short words bold one letter", () => {
+    expect(bionicSplit("a")).toEqual({ bold: "a", rest: "" });
+    expect(bionicSplit("to")).toEqual({ bold: "t", rest: "o" });
+    expect(bionicSplit("the")).toEqual({ bold: "t", rest: "he" });
+  });
+  it("preserves leading/trailing punctuation outside the bold prefix", () => {
+    const r = bionicSplit("(hello)");
+    expect(r.bold.startsWith("(")).toBe(true);
+    expect(r.rest.endsWith(")")).toBe(true);
+    expect(r.bold + r.rest).toBe("(hello)");
   });
 });
 

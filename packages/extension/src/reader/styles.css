@@ -38,10 +38,26 @@ h1 span { color: var(--accent); }
   align-items: center;
   gap: 16px;
 }
-.word { font-family: Georgia, serif; font-weight: 700; letter-spacing: 2px; min-height: 72px; width: 100%; display: flex; align-items: baseline; justify-content: center; gap: 0.35em; white-space: nowrap; overflow: hidden; padding: 0 10px; }
+.word { font-family: Georgia, serif; font-weight: 700; letter-spacing: 2px; min-height: 72px; width: 100%; display: flex; align-items: baseline; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 10px; }
 .word .orp { color: var(--red); }
-.word .chunk-word.side { opacity: 0.55; font-weight: 500; }
+.word .chunk-word.side { opacity: 0.55; font-weight: 500; padding: 0 0.3em; }
 .word .chunk-word.center { font-weight: 700; }
+.word.anchored .half { flex: 1 1 50%; display: flex; align-items: baseline; white-space: nowrap; overflow: hidden; }
+.word.anchored .half.left { justify-content: flex-end; }
+.word.anchored .half.right { justify-content: flex-start; }
+.word.anchored .anchor { flex: 0 0 auto; }
+
+.mode-switch { display: flex; gap: 8px; margin: 0 0 12px; justify-content: center; }
+.mode { padding: 6px 14px; font-size: 0.85rem; border-radius: 99px; color: var(--text-muted); }
+.mode.active { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,0.1); }
+
+.bionic { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; line-height: 1.7; font-family: Georgia, serif; color: var(--text); }
+.bionic p { margin-bottom: 1em; }
+.bionic .bw b { font-weight: 700; color: var(--text); }
+.bionic .bw > span { font-weight: 300; opacity: 0.78; }
+
+.scrubber { width: 100%; -webkit-appearance: none; appearance: none; height: 6px; margin-top: 10px; background: var(--surface2); border-radius: 99px; outline: none; cursor: pointer; }
+.scrubber::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: grab; box-shadow: 0 0 0 3px rgba(124,58,237,0.3); }
 .context { display: flex; gap: 16px; opacity: 0.55; }
 .progress { width: 100%; height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.1s; }
