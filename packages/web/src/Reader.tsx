@@ -7,6 +7,7 @@ import {
   type LibraryDoc,
 } from "@speedreader/storage";
 import { BionicView } from "./BionicView.js";
+import { Quiz } from "./Quiz.js";
 
 type Mode = "rsvp" | "bionic";
 
@@ -25,6 +26,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [naturalPauses, setNaturalPauses] = useState(true);
   const [adaptivePacing, setAdaptivePacing] = useState(false);
   const [bionicIntensity, setBionicIntensity] = useState(0.45);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const lastStatIndexRef = useRef(0);
@@ -59,7 +61,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
       onTick: (i) => setIndex(i),
-      onFinish: () => setIsPlaying(false),
+      onFinish: () => { setIsPlaying(false); setShowQuiz(true); },
     });
     s.seek(index);
     schedRef.current = s;
@@ -167,7 +169,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       <div className="mode-switch">
         <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
+        <button className="mode" onClick={() => setShowQuiz(true)} title="Test your recall">🧠 Quiz</button>
       </div>
+
+      {showQuiz && <Quiz text={doc.text} onClose={() => setShowQuiz(false)} />}
 
       {mode === "bionic" ? (
         <>

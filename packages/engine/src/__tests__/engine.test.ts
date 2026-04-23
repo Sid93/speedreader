@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { tokenize, isPunctuationOnly, getORP, createScheduler, bionicSplit, sentenceStartAtOrBefore, endsSentence } from "../index.js";
+import { tokenize, isPunctuationOnly, getORP, createScheduler, bionicSplit, sentenceStartAtOrBefore, endsSentence, buildQuiz } from "../index.js";
 
 describe("tokenize", () => {
   it("splits on whitespace and drops empties", () => {
@@ -41,6 +41,24 @@ describe("sentenceStartAtOrBefore", () => {
     expect(endsSentence("done.")).toBe(true);
     expect(endsSentence('said."')).toBe(true);
     expect(endsSentence("running")).toBe(false);
+  });
+});
+
+describe("buildQuiz", () => {
+  const sample = `The quick brown fox jumps over the lazy sleeping dog. Reading faster requires focused attention and regular practice. Bionic reading emphasizes the beginning letters of words to help anchor the reader. Comprehension improves when natural pauses follow sentence endings.`;
+  it("produces questions with 4 options each, answer among them", () => {
+    const qs = buildQuiz(sample, { count: 3, seed: 1 });
+    expect(qs.length).toBeGreaterThan(0);
+    for (const q of qs) {
+      expect(q.options.length).toBe(4);
+      expect(q.options).toContain(q.answer);
+      expect(q.before + " " + q.answer + " " + q.after).toContain(q.answer);
+    }
+  });
+  it("same seed + text produces same quiz", () => {
+    const a = buildQuiz(sample, { seed: 42 });
+    const b = buildQuiz(sample, { seed: 42 });
+    expect(a).toEqual(b);
   });
 });
 

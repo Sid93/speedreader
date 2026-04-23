@@ -2,9 +2,66 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { tokenize, getORP, createScheduler, type Scheduler } from "@speedreader/engine";
 import { extractArticle } from "@speedreader/extractors";
 import { saveDoc, saveProgress, getProgress, recordWords, type LibraryDoc } from "@speedreader/storage";
-import { bionicSplit, sentenceStartAtOrBefore } from "@speedreader/engine";
+import { bionicSplit, sentenceStartAtOrBefore, buildQuiz, type QuizQuestion } from "@speedreader/engine";
 
 type Mode = "rsvp" | "bionic";
+
+function Quiz({ text, onClose }: { text: string; onClose: () => void }) {
+  const [seed, setSeed] = useState(Date.now() & 0xffff);
+  const questions = useMemo<QuizQuestion[]>(() => buildQuiz(text, { count: 3, seed }), [text, seed]);
+  const [picks, setPicks] = useState<(string | null)[]>(() => questions.map(() => null));
+  const [submitted, setSubmitted] = useState(false);
+
+  if (questions.length === 0) {
+    return <div className="panel"><div className="meta">Not enough text to build a quiz.</div><button onClick={onClose} style={{ marginTop: 10 }}>Close</button></div>;
+  }
+
+  const correct = questions.filter((q, i) => picks[i]?.toLowerCase() === q.answer.toLowerCase()).length;
+  const allAnswered = picks.every((p) => p !== null);
+
+  return (
+    <div className="quiz">
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
+        <strong>🧠 Quick comprehension quiz</strong>
+        <button onClick={onClose}>✕</button>
+      </div>
+      {questions.map((q, qi) => (
+        <div key={qi} className="panel" style={{ marginTop: 10 }}>
+          <div className="meta" style={{ marginBottom: 6 }}>Question {qi + 1} of {questions.length}</div>
+          <div style={{ lineHeight: 1.5, marginBottom: 10 }}>
+            {q.before} <span className="cloze-blank">{submitted ? q.answer : "____"}</span> {q.after}
+          </div>
+          <div className="quiz-options">
+            {q.options.map((opt) => {
+              const picked = picks[qi] === opt;
+              const isAnswer = opt.toLowerCase() === q.answer.toLowerCase();
+              let cls = "quiz-opt";
+              if (submitted) { if (isAnswer) cls += " correct"; else if (picked) cls += " wrong"; }
+              else if (picked) cls += " picked";
+              return (
+                <button key={opt} className={cls} disabled={submitted}
+                  onClick={() => setPicks((prev) => prev.map((p, i) => (i === qi ? opt : p)))}>
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {!submitted ? (
+        <button className="primary" disabled={!allAnswered} onClick={() => setSubmitted(true)} style={{ marginTop: 12 }}>Submit →</button>
+      ) : (
+        <div className="quiz-result">
+          <div className="stat-value" style={{ fontSize: "1.3rem" }}>{correct} / {questions.length}</div>
+          <div className="row" style={{ gap: 8, justifyContent: "center" }}>
+            <button onClick={() => { setSeed((s) => s + 1); setPicks(questions.map(() => null)); setSubmitted(false); }}>New questions</button>
+            <button className="primary" onClick={onClose}>Done</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function BionicView({ text, fontSize }: { text: string; fontSize: number }) {
   const paragraphs = text.split(/\n\s*\n/);
@@ -85,6 +142,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [mode, setMode] = useState<Mode>("rsvp");
   const [naturalPauses, setNaturalPauses] = useState(true);
   const [adaptivePacing, setAdaptivePacing] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const indexRef = useRef(0);
@@ -117,7 +175,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
       onTick: (i) => setIndex(i),
-      onFinish: () => setIsPlaying(false),
+      onFinish: () => { setIsPlaying(false); setShowQuiz(true); },
     });
     s.seek(index);
     schedRef.current = s;
@@ -206,7 +264,10 @@ function Player({ doc }: { doc: LibraryDoc }) {
       <div className="mode-switch">
         <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
+        <button className="mode" onClick={() => setShowQuiz(true)}>🧠 Quiz</button>
       </div>
+
+      {showQuiz && <Quiz text={doc.text} onClose={() => setShowQuiz(false)} />}
 
       {mode === "bionic" ? (
         <BionicView text={doc.text} fontSize={Math.max(14, Math.round(fontSize * 0.36))} />
