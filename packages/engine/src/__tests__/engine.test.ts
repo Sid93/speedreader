@@ -74,6 +74,24 @@ describe("scheduler", () => {
     expect(ticks).toEqual([0, 2]);
   });
 
+  it("chunkSize=3 advances 3 words per tick", () => {
+    const ticks: number[] = [];
+    const sched = createScheduler({
+      words: ["a","b","c","d","e","f","g","h","i"],
+      wpm: 600,
+      chunkSize: 3,
+      onTick: (i) => ticks.push(i),
+    });
+    sched.play();
+    // first emit at 0 (immediate)
+    expect(ticks).toEqual([0]);
+    // delay = 60000 * 3 / 600 = 300ms
+    vi.advanceTimersByTime(300);
+    expect(ticks).toEqual([0, 3]);
+    vi.advanceTimersByTime(300);
+    expect(ticks).toEqual([0, 3, 6]);
+  });
+
   it("step(1) advances and pauses", () => {
     const ticks: number[] = [];
     const sched = createScheduler({

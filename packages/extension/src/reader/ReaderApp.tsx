@@ -52,6 +52,7 @@ function Player({ title, text }: { title: string; text: string }) {
   const [fontSize, setFontSize] = useState(56);
   const [skipPunct, setSkipPunct] = useState(true);
   const [showContext, setShowContext] = useState(true);
+  const [chunkSize, setChunkSize] = useState(1);
   const schedRef = useRef<Scheduler | null>(null);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ function Player({ title, text }: { title: string; text: string }) {
       words,
       wpm,
       skipPunct,
+      chunkSize,
       onTick: (i) => setIndex(i),
       onFinish: () => setIsPlaying(false),
     });
@@ -68,6 +70,7 @@ function Player({ title, text }: { title: string; text: string }) {
 
   useEffect(() => { schedRef.current?.setWpm(wpm); }, [wpm]);
   useEffect(() => { schedRef.current?.setSkipPunct(skipPunct); }, [skipPunct]);
+  useEffect(() => { schedRef.current?.setChunkSize(chunkSize); }, [chunkSize]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -93,7 +96,9 @@ function Player({ title, text }: { title: string; text: string }) {
     setIsPlaying(s.getState().isPlaying);
   }
 
-  const parts = words[index] ? getORP(words[index]!) : { before: "", orp: "", after: "" };
+  const chunk = words.slice(index, index + chunkSize);
+  const centerIdx = Math.floor((chunk.length - 1) / 2);
+  const centerParts = chunk[centerIdx] ? getORP(chunk[centerIdx]!) : { before: "", orp: "", after: "" };
   const progress = words.length > 1 ? (index / (words.length - 1)) * 100 : 0;
   const minLeft = Math.max(0, Math.ceil((words.length - index - 1) / wpm));
 
@@ -108,10 +113,19 @@ function Player({ title, text }: { title: string; text: string }) {
       </header>
 
       <div className="reader">
-        <div className="word" style={{ fontSize }}>
-          <span>{parts.before}</span>
-          <span className="orp">{parts.orp}</span>
-          <span>{parts.after}</span>
+        <div className="word" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)) }}>
+          {chunk.map((w, i) => {
+            if (i === centerIdx) {
+              return (
+                <span key={i} className="chunk-word center">
+                  <span>{centerParts.before}</span>
+                  <span className="orp">{centerParts.orp}</span>
+                  <span>{centerParts.after}</span>
+                </span>
+              );
+            }
+            return <span key={i} className="chunk-word side">{w}</span>;
+          })}
         </div>
         {showContext && (
           <div className="context meta">
@@ -146,6 +160,20 @@ function Player({ title, text }: { title: string; text: string }) {
         <div className="presets">
           {SPEED_PRESETS.map((p) => (
             <button key={p} className={wpm === p ? "preset active" : "preset"} onClick={() => setWpm(p)}>{p}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-row">
+          <strong>Bunching</strong>
+          <span className="meta">{chunkSize === 1 ? "off" : `${chunkSize} words/chunk · ${wpm * chunkSize} eff. WPM`}</span>
+        </div>
+        <div className="presets">
+          {[1, 2, 3, 4].map((n) => (
+            <button key={n} className={chunkSize === n ? "preset active" : "preset"} onClick={() => setChunkSize(n)}>
+              {n === 1 ? "Off" : `${n}×`}
+            </button>
           ))}
         </div>
       </div>

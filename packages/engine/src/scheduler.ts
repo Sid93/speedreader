@@ -4,6 +4,7 @@ export interface SchedulerOptions {
   words: string[];
   wpm?: number;
   skipPunct?: boolean;
+  chunkSize?: number;
   onTick: (index: number, word: string) => void;
   onFinish?: () => void;
 }
@@ -12,6 +13,7 @@ export interface SchedulerState {
   index: number;
   isPlaying: boolean;
   wpm: number;
+  chunkSize: number;
 }
 
 export interface Scheduler {
@@ -22,14 +24,16 @@ export interface Scheduler {
   seek(index: number): void;
   setWpm(wpm: number): void;
   setSkipPunct(skip: boolean): void;
+  setChunkSize(n: number): void;
   getState(): SchedulerState;
   destroy(): void;
 }
 
 export function createScheduler(opts: SchedulerOptions): Scheduler {
-  let { words } = opts;
+  const { words } = opts;
   let wpm = opts.wpm ?? 300;
   let skipPunct = opts.skipPunct ?? true;
+  let chunkSize = Math.max(1, opts.chunkSize ?? 1);
   let index = 0;
   let isPlaying = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -41,7 +45,7 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
   }
 
   function nextPlayableIndex(from: number, dir: 1 | -1 = 1): number {
-    if (!skipPunct) return from;
+    if (!skipPunct || chunkSize > 1) return from;
     let i = from;
     while (i >= 0 && i < words.length && isPunctuationOnly(words[i]!)) {
       i += dir;
@@ -51,9 +55,10 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
 
   function schedule() {
     if (!isPlaying) return;
-    const delay = Math.max(1, Math.round(60000 / wpm));
+    // Delay per chunk = chunkSize words worth of time at wpm.
+    const delay = Math.max(1, Math.round((60000 * chunkSize) / wpm));
     timer = setTimeout(() => {
-      const next = nextPlayableIndex(index + 1, 1);
+      const next = nextPlayableIndex(index + chunkSize, 1);
       if (next >= words.length) {
         isPlaying = false;
         timer = null;
@@ -92,7 +97,8 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     step(delta: number) {
       this.pause();
       const dir: 1 | -1 = delta >= 0 ? 1 : -1;
-      let target = index + delta;
+      const jump = (delta >= 0 ? 1 : -1) * Math.max(1, Math.abs(delta)) * chunkSize;
+      let target = index + jump;
       target = Math.max(0, Math.min(words.length - 1, target));
       target = nextPlayableIndex(target, dir);
       if (target < 0) target = 0;
@@ -107,16 +113,17 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     },
     setWpm(w: number) {
       wpm = Math.max(1, w);
-      if (isPlaying) {
-        clear();
-        schedule();
-      }
+      if (isPlaying) { clear(); schedule(); }
     },
     setSkipPunct(skip: boolean) {
       skipPunct = skip;
     },
+    setChunkSize(n: number) {
+      chunkSize = Math.max(1, Math.floor(n));
+      if (isPlaying) { clear(); schedule(); }
+    },
     getState() {
-      return { index, isPlaying, wpm };
+      return { index, isPlaying, wpm, chunkSize };
     },
     destroy() {
       clear();

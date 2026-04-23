@@ -17,6 +17,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [fontSize, setFontSize] = useState(56);
   const [skipPunct, setSkipPunct] = useState(true);
   const [showContext, setShowContext] = useState(true);
+  const [chunkSize, setChunkSize] = useState(1);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const lastStatIndexRef = useRef(0);
@@ -43,6 +44,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       words,
       wpm,
       skipPunct,
+      chunkSize,
       onTick: (i) => setIndex(i),
       onFinish: () => setIsPlaying(false),
     });
@@ -55,6 +57,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
 
   useEffect(() => { schedRef.current?.setWpm(wpm); }, [wpm]);
   useEffect(() => { schedRef.current?.setSkipPunct(skipPunct); }, [skipPunct]);
+  useEffect(() => { schedRef.current?.setChunkSize(chunkSize); }, [chunkSize]);
 
   // Autosave progress on every tick (debounced via RAF-ish: every 10 words or pause)
   useEffect(() => {
@@ -114,7 +117,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
     setIsPlaying(s.getState().isPlaying);
   }
 
-  const parts = words[index] ? getORP(words[index]!) : { before: "", orp: "", after: "" };
+  const chunk = words.slice(index, index + chunkSize);
+  const centerIdx = Math.floor((chunk.length - 1) / 2);
+  const centerParts = chunk[centerIdx] ? getORP(chunk[centerIdx]!) : { before: "", orp: "", after: "" };
+  const effectiveWpm = wpm; // wpm in scheduler is true words-per-minute
   const progress = words.length > 1 ? (index / (words.length - 1)) * 100 : 0;
   const wordsLeft = words.length - index - 1;
   const minLeft = Math.max(0, Math.ceil(wordsLeft / wpm));
@@ -130,10 +136,19 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>
 
       <div className="reader">
-        <div className="word" style={{ fontSize }}>
-          <span>{parts.before}</span>
-          <span className="orp">{parts.orp}</span>
-          <span>{parts.after}</span>
+        <div className="word" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)) }}>
+          {chunk.map((w, i) => {
+            if (i === centerIdx) {
+              return (
+                <span key={i} className="chunk-word center">
+                  <span>{centerParts.before}</span>
+                  <span className="orp">{centerParts.orp}</span>
+                  <span>{centerParts.after}</span>
+                </span>
+              );
+            }
+            return <span key={i} className="chunk-word side">{w}</span>;
+          })}
         </div>
 
         {showContext && (
@@ -175,6 +190,25 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           {SPEED_PRESETS.map((p) => (
             <button key={p} className={wpm === p ? "preset active" : "preset"} onClick={() => setWpm(p)}>
               {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-row">
+          <strong>Bunching</strong>
+          <span className="meta">{chunkSize === 1 ? "off" : `${chunkSize} words/chunk · ${effectiveWpm * chunkSize} eff. WPM`}</span>
+        </div>
+        <div className="presets">
+          {[1, 2, 3, 4].map((n) => (
+            <button
+              key={n}
+              className={chunkSize === n ? "preset active" : "preset"}
+              onClick={() => setChunkSize(n)}
+              title={n === 1 ? "Single word (RSVP)" : `${n} words at a time`}
+            >
+              {n === 1 ? "Off" : `${n}×`}
             </button>
           ))}
         </div>
