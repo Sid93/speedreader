@@ -13,6 +13,14 @@ type Mode = "rsvp" | "bionic";
 
 const SPEED_PRESETS = [150, 300, 450, 600, 900];
 
+const FONT_OPTIONS: { label: string; value: string }[] = [
+  { label: "Serif", value: "Georgia, serif" },
+  { label: "Sans", value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" },
+  { label: "Mono", value: "'SF Mono', Menlo, Consolas, monospace" },
+  { label: "Atkinson", value: "'Atkinson Hyperlegible', sans-serif" },
+  { label: "Dyslexic", value: "'OpenDyslexic', sans-serif" },
+];
+
 export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void }) {
   const words = useMemo(() => tokenize(doc.text), [doc.text]);
   const [index, setIndex] = useState(0);
@@ -26,6 +34,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [naturalPauses, setNaturalPauses] = useState(true);
   const [adaptivePacing, setAdaptivePacing] = useState(false);
   const [bionicIntensity, setBionicIntensity] = useState(0.45);
+  const [fontFamily, setFontFamily] = useState<string>(() =>
+    localStorage.getItem("sr.fontFamily") ?? "Georgia, serif",
+  );
+  useEffect(() => { localStorage.setItem("sr.fontFamily", fontFamily); }, [fontFamily]);
   const [showQuiz, setShowQuiz] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [warmup, setWarmup] = useState(false);
@@ -170,6 +182,8 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         case "r": case "R": schedRef.current?.seek(0); setIsPlaying(false); break;
         case "Escape": if (focusMode) { e.preventDefault(); setFocusMode(false); } break;
         case "f": case "F": e.preventDefault(); setFocusMode((v) => !v); break;
+        case "+": case "=": e.preventDefault(); setFontSize((s) => Math.min(140, s + 4)); break;
+        case "-": case "_": e.preventDefault(); setFontSize((s) => Math.max(20, s - 4)); break;
       }
     };
     window.addEventListener("keydown", onKey);
@@ -209,7 +223,12 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         </div>
       )}
       {focusMode && (
-        <button className="focus-exit" onClick={() => setFocusMode(false)} title="Exit focus (Esc)">✕ Focus</button>
+        <div className="focus-bar">
+          <button className="focus-btn" onClick={() => setFontSize((s) => Math.max(20, s - 4))} title="Smaller (−)">−</button>
+          <span className="focus-label">{fontSize}px</span>
+          <button className="focus-btn" onClick={() => setFontSize((s) => Math.min(140, s + 4))} title="Larger (+)">+</button>
+          <button className="focus-btn" onClick={() => setFocusMode(false)} title="Exit focus (Esc)">✕</button>
+        </div>
       )}
 
       {!focusMode && (
@@ -236,7 +255,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
 
       {mode === "bionic" ? (
         <>
-          <BionicView text={doc.text} fontSize={Math.max(16, Math.round(fontSize * 0.38))} intensity={bionicIntensity} />
+          <BionicView text={doc.text} fontSize={Math.max(16, Math.round(fontSize * 0.38))} intensity={bionicIntensity} fontFamily={fontFamily} />
           <div className="panel">
             <div className="panel-row">
               <strong>Bionic intensity</strong>
@@ -254,7 +273,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         </>
       ) : (
       <div className="reader">
-        <div className="word anchored" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)) }}>
+        <div className="word anchored" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)), fontFamily }}>
           <div className="half left">
             {chunk.slice(0, centerIdx).map((w, i) => (
               <span key={`L${i}`} className="chunk-word side">{w}</span>
@@ -354,10 +373,22 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
 
       {!focusMode && <div className="panel">
         <div className="panel-row"><strong>Display</strong></div>
+        <div className="row" style={{ gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+          {FONT_OPTIONS.map((f) => (
+            <button
+              key={f.label}
+              className={fontFamily === f.value ? "preset active" : "preset"}
+              onClick={() => setFontFamily(f.value)}
+              style={{ fontFamily: f.value, fontSize: "0.95rem" }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="row" style={{ gap: 24, flexWrap: "wrap" }}>
           <label className="row">
-            <span className="meta">Font</span>
-            <input type="range" min={28} max={96} value={fontSize}
+            <span className="meta">Size</span>
+            <input type="range" min={28} max={140} value={fontSize}
               onChange={(e) => setFontSize(Number(e.target.value))} />
             <span className="meta">{fontSize}px</span>
           </label>

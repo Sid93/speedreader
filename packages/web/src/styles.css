@@ -1,3 +1,18 @@
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/gh/antijingoist/opendyslexic-webfont@master/compiled/OpenDyslexic-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/gh/antijingoist/opendyslexic-webfont@master/compiled/OpenDyslexic-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #0f0f1a;
   --surface: #1a1a2e;
@@ -461,7 +476,7 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   background: var(--bg);
   justify-content: center;
 }
-.focus-mode .word { font-size: 72px !important; }
+/* focus mode: let the user-chosen fontSize flow through — no override */
 .focus-mode .controls { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); opacity: 0.35; transition: opacity 0.2s; }
 .focus-mode .controls:hover { opacity: 1; }
 .focus-exit {
@@ -470,6 +485,35 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   padding: 6px 12px; border-radius: 99px; opacity: 0.4; font-size: 0.85rem;
 }
 .focus-exit:hover { opacity: 1; }
+
+.focus-bar {
+  position: fixed; top: 16px; right: 16px; z-index: 10;
+  display: flex; gap: 4px; align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 4px;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.focus-bar:hover { opacity: 1; }
+.focus-btn {
+  width: 30px; height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  color: var(--text);
+}
+.focus-btn:hover { background: var(--surface2); }
+.focus-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 0 6px;
+  min-width: 44px;
+  text-align: center;
+}
 
 .quiz {
   background: var(--surface);
