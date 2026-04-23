@@ -143,7 +143,11 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [naturalPauses, setNaturalPauses] = useState(true);
   const [adaptivePacing, setAdaptivePacing] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [warmup, setWarmup] = useState(false);
+  const [metronome, setMetronome] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const schedRef = useRef<Scheduler | null>(null);
   const indexRef = useRef(0);
   const wpmRef = useRef(300);
@@ -174,7 +178,23 @@ function Player({ doc }: { doc: LibraryDoc }) {
       sentencePauseMs: naturalPauses ? 250 : 0,
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
-      onTick: (i) => setIndex(i),
+      warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : null,
+      onTick: (i) => {
+        setIndex(i);
+        if (metronome) {
+          try {
+            if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const ctx = audioCtxRef.current!;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.frequency.value = 1200; osc.type = "sine";
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(); osc.stop(ctx.currentTime + 0.05);
+          } catch {}
+        }
+      },
       onFinish: () => { setIsPlaying(false); setShowQuiz(true); },
     });
     s.seek(index);
@@ -220,6 +240,9 @@ function Player({ doc }: { doc: LibraryDoc }) {
     schedRef.current?.setCommaPauseMs(naturalPauses ? 80 : 0);
   }, [naturalPauses]);
   useEffect(() => { schedRef.current?.setAdaptivePacing(adaptivePacing); }, [adaptivePacing]);
+  useEffect(() => {
+    schedRef.current?.setWarmup(warmup ? { startFactor: 0.7, durationMs: 30000 } : null);
+  }, [warmup]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -375,6 +398,14 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <label className="row" title="Longer words get proportionally more time">
             <input type="checkbox" checked={adaptivePacing} onChange={(e) => setAdaptivePacing(e.target.checked)} />
             <span className="meta">Adaptive pacing</span>
+          </label>
+          <label className="row" title="Start 30% slower and ramp to full speed over 30 seconds">
+            <input type="checkbox" checked={warmup} onChange={(e) => setWarmup(e.target.checked)} />
+            <span className="meta">Warmup ramp</span>
+          </label>
+          <label className="row" title="Soft click on each word — suppresses subvocalization">
+            <input type="checkbox" checked={metronome} onChange={(e) => setMetronome(e.target.checked)} />
+            <span className="meta">Metronome tick</span>
           </label>
         </div>
       </div>

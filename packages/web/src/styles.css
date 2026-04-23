@@ -254,6 +254,41 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   margin-top: 6px;
 }
 
+.schulte {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  aspect-ratio: 1 / 1;
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+}
+.sc-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  aspect-ratio: 1 / 1;
+  color: var(--text);
+}
+.sc-cell:hover { border-color: var(--accent); }
+.sc-cell.done { opacity: 0.25; color: var(--text-muted); }
+.schulte-fixation {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 10px; height: 10px;
+  transform: translate(-50%, -50%);
+  background: var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
 .goal-card {
   background: linear-gradient(135deg, var(--surface), var(--surface2));
   border: 1px solid var(--border);
@@ -315,6 +350,24 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .bionic p { margin-bottom: 1em; }
 .bionic .bw b { font-weight: 700; color: var(--text); }
 .bionic .bw > span { font-weight: 300; opacity: 0.78; }
+
+.focus-mode { max-width: 100%; padding: 0; }
+.focus-mode .reader {
+  min-height: 100vh;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  justify-content: center;
+}
+.focus-mode .word { font-size: 72px !important; }
+.focus-mode .controls { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); opacity: 0.35; transition: opacity 0.2s; }
+.focus-mode .controls:hover { opacity: 1; }
+.focus-exit {
+  position: fixed; top: 16px; right: 16px; z-index: 10;
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 6px 12px; border-radius: 99px; opacity: 0.4; font-size: 0.85rem;
+}
+.focus-exit:hover { opacity: 1; }
 
 .quiz {
   background: var(--surface);

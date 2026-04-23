@@ -27,6 +27,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [adaptivePacing, setAdaptivePacing] = useState(false);
   const [bionicIntensity, setBionicIntensity] = useState(0.45);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [warmup, setWarmup] = useState(false);
+  const [metronome, setMetronome] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const lastStatIndexRef = useRef(0);
@@ -60,7 +64,11 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       sentencePauseMs: naturalPauses ? 250 : 0,
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
-      onTick: (i) => setIndex(i),
+      warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : null,
+      onTick: (i) => {
+        setIndex(i);
+        if (metronome) playTick();
+      },
       onFinish: () => { setIsPlaying(false); setShowQuiz(true); },
     });
     s.seek(index);
@@ -78,6 +86,27 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
     schedRef.current?.setCommaPauseMs(naturalPauses ? 80 : 0);
   }, [naturalPauses]);
   useEffect(() => { schedRef.current?.setAdaptivePacing(adaptivePacing); }, [adaptivePacing]);
+  useEffect(() => {
+    schedRef.current?.setWarmup(warmup ? { startFactor: 0.7, durationMs: 30000 } : null);
+  }, [warmup]);
+
+  function playTick() {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current!;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 1200;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } catch { /* ignore */ }
+  }
 
   // Autosave progress on every tick (debounced via RAF-ish: every 10 words or pause)
   useEffect(() => {
@@ -135,6 +164,8 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         case "ArrowUp": e.preventDefault(); setWpm((w) => Math.min(1000, w + 50)); break;
         case "ArrowDown": e.preventDefault(); setWpm((w) => Math.max(100, w - 50)); break;
         case "r": case "R": schedRef.current?.seek(0); setIsPlaying(false); break;
+        case "Escape": if (focusMode) { e.preventDefault(); setFocusMode(false); } break;
+        case "f": case "F": e.preventDefault(); setFocusMode((v) => !v); break;
       }
     };
     window.addEventListener("keydown", onKey);
@@ -157,20 +188,28 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const minLeft = Math.max(0, Math.ceil(wordsLeft / wpm));
 
   return (
-    <div className="app">
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
-        <button onClick={onBack}>← Back</button>
-        <div className="meta" style={{ textAlign: "right" }}>
-          <strong>{doc.title}</strong>
-          <div>{words.length.toLocaleString()} words · ~{Math.ceil(words.length / wpm)} min @ {wpm} WPM</div>
+    <div className={focusMode ? "app focus-mode" : "app"}>
+      {!focusMode && (
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+          <button onClick={onBack}>← Back</button>
+          <div className="meta" style={{ textAlign: "right" }}>
+            <strong>{doc.title}</strong>
+            <div>{words.length.toLocaleString()} words · ~{Math.ceil(words.length / wpm)} min @ {wpm} WPM</div>
+          </div>
         </div>
-      </div>
+      )}
+      {focusMode && (
+        <button className="focus-exit" onClick={() => setFocusMode(false)} title="Exit focus (Esc)">✕ Focus</button>
+      )}
 
+      {!focusMode && (
       <div className="mode-switch">
         <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
         <button className="mode" onClick={() => setShowQuiz(true)} title="Test your recall">🧠 Quiz</button>
+        <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
       </div>
+      )}
 
       {showQuiz && <Quiz text={doc.text} onClose={() => setShowQuiz(false)} />}
 
@@ -210,7 +249,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           </div>
         </div>
 
-        {showContext && (
+        {showContext && !focusMode && (
           <div className="context meta">
             <span>{index > 0 ? words[index - 1] : "—"}</span>
             <span style={{ opacity: 0.4 }}>···</span>
@@ -218,7 +257,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           </div>
         )}
 
-        <div style={{ width: "100%" }}>
+        {!focusMode && <div style={{ width: "100%" }}>
           <div className="row" style={{ justifyContent: "space-between" }}>
             <span className="meta">Word {index + 1} of {words.length.toLocaleString()}</span>
             <span className="meta">{minLeft > 0 ? `~${minLeft} min left` : "Almost done"}</span>
@@ -232,7 +271,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
             onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
             aria-label="Scrub through words"
           />
-        </div>
+        </div>}
 
         <div className="controls">
           <button onClick={() => { schedRef.current?.seek(0); setIsPlaying(false); }} title="Rewind (R)">⏮</button>
@@ -244,7 +283,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>
       )}
 
-      {mode === "rsvp" && (
+      {mode === "rsvp" && !focusMode && (
       <>
       <div className="panel">
         <div className="panel-row">
@@ -286,7 +325,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </>
       )}
 
-      <div className="panel">
+      {!focusMode && <div className="panel">
         <div className="panel-row"><strong>Display</strong></div>
         <div className="row" style={{ gap: 24, flexWrap: "wrap" }}>
           <label className="row">
@@ -311,11 +350,19 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
             <input type="checkbox" checked={adaptivePacing} onChange={(e) => setAdaptivePacing(e.target.checked)} />
             <span className="meta">Adaptive pacing</span>
           </label>
+          <label className="row" title="Start 30% slower and ramp to full speed over 30 seconds">
+            <input type="checkbox" checked={warmup} onChange={(e) => setWarmup(e.target.checked)} />
+            <span className="meta">Warmup ramp</span>
+          </label>
+          <label className="row" title="Soft click sound on every word — suppresses subvocalization">
+            <input type="checkbox" checked={metronome} onChange={(e) => setMetronome(e.target.checked)} />
+            <span className="meta">Metronome tick</span>
+          </label>
         </div>
         <div className="meta" style={{ marginTop: 12 }}>
-          <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±50 WPM · <kbd>R</kbd> rewind
+          <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±50 WPM · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -11,6 +11,11 @@ export interface SchedulerOptions {
   commaPauseMs?: number;
   /** Enable adaptive pacing: longer words get proportionally more time. */
   adaptivePacing?: boolean;
+  /**
+   * Warmup: start at `warmupStartFactor` × wpm and ramp to full wpm over
+   * `warmupDurationMs`. Gives the eye a chance to settle.
+   */
+  warmup?: { startFactor: number; durationMs: number };
   onTick: (index: number, word: string) => void;
   onFinish?: () => void;
 }
@@ -34,6 +39,7 @@ export interface Scheduler {
   setSentencePauseMs(ms: number): void;
   setCommaPauseMs(ms: number): void;
   setAdaptivePacing(on: boolean): void;
+  setWarmup(w: { startFactor: number; durationMs: number } | null): void;
   getState(): SchedulerState;
   destroy(): void;
 }
@@ -46,9 +52,19 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
   let sentencePauseMs = opts.sentencePauseMs ?? 250;
   let commaPauseMs = opts.commaPauseMs ?? 80;
   let adaptivePacing = opts.adaptivePacing ?? false;
+  let warmup: { startFactor: number; durationMs: number } | null = opts.warmup ?? null;
+  let playStartAt = 0;
   let index = 0;
   let isPlaying = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+
+  function warmupFactor(): number {
+    if (!warmup || !isPlaying) return 1;
+    const elapsed = Date.now() - playStartAt;
+    if (elapsed >= warmup.durationMs) return 1;
+    const t = elapsed / warmup.durationMs;
+    return warmup.startFactor + (1 - warmup.startFactor) * t;
+  }
 
   function adaptiveMultiplier(word: string): number {
     if (!adaptivePacing) return 1;
@@ -90,7 +106,8 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     const current = words[index] ?? "";
     const mult = chunkSize === 1 ? adaptiveMultiplier(current) : 1;
     const extra = chunkSize === 1 ? extraPauseFor(current) : extraPauseFor(current);
-    const delay = Math.max(1, Math.round(baseDelay * mult + extra));
+    const warm = warmupFactor(); // <1 during warmup → longer delay
+    const delay = Math.max(1, Math.round((baseDelay * mult) / warm + extra));
     timer = setTimeout(() => {
       const next = nextPlayableIndex(index + chunkSize, 1);
       if (next >= words.length) {
@@ -118,6 +135,7 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       if (index >= words.length) index = 0;
       index = nextPlayableIndex(index, 1);
       isPlaying = true;
+      playStartAt = Date.now();
       emit();
       schedule();
     },
@@ -159,6 +177,7 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     setSentencePauseMs(ms: number) { sentencePauseMs = Math.max(0, ms); },
     setCommaPauseMs(ms: number) { commaPauseMs = Math.max(0, ms); },
     setAdaptivePacing(on: boolean) { adaptivePacing = on; },
+    setWarmup(w) { warmup = w; },
     getState() {
       return { index, isPlaying, wpm, chunkSize };
     },
