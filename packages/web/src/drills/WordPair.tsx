@@ -10,7 +10,7 @@ export function WordPair() {
   const [running, setRunning] = useState(false);
   const [pair, setPair] = useState<[string, string]>(["", ""]);
   const [ms, setMs] = useState(700);
-  const [gap, setGap] = useState(120);
+  const [gap, setGap] = useState(20); // % of stage width
   const [autoExpand, setAutoExpand] = useState(true);
   const [rounds, setRounds] = useState(0);
   const timer = useRef<number | null>(null);
@@ -20,7 +20,7 @@ export function WordPair() {
     setPair([a!, b!]);
     setRounds((n) => {
       const nn = n + 1;
-      if (autoExpand && nn % 10 === 0) setGap((g) => Math.min(360, g + 20));
+      if (autoExpand && nn % 10 === 0) setGap((g) => Math.min(30, g + 1));
       return nn;
     });
   }
@@ -44,11 +44,9 @@ export function WordPair() {
       </div>
 
       <div className="peri-stage">
-        <div className="peri-row" style={{ gap: `${gap}px` }}>
-          <span className="peri-word">{running ? pair[0] : ""}</span>
-          <span className="peri-fix" aria-hidden="true" />
-          <span className="peri-word">{running ? pair[1] : ""}</span>
-        </div>
+        <span className="peri-fix" aria-hidden="true" />
+        <span className="peri-word side-left" style={{ right: `calc(50% + ${gap}%)` }}>{running ? pair[0] : ""}</span>
+        <span className="peri-word side-right" style={{ left: `calc(50% + ${gap}%)` }}>{running ? pair[1] : ""}</span>
       </div>
 
       <div className="row" style={{ flexWrap: "wrap", gap: 12, marginTop: 12 }}>
@@ -60,8 +58,8 @@ export function WordPair() {
             onChange={(e) => setMs(Number(e.target.value))} /> <span className="meta">{ms}ms</span>
         </label>
         <label className="row"><span className="meta">Gap</span>
-          <input type="range" min={40} max={360} step={20} value={gap}
-            onChange={(e) => setGap(Number(e.target.value))} /> <span className="meta">{gap}px</span>
+          <input type="range" min={8} max={30} step={1} value={gap}
+            onChange={(e) => setGap(Number(e.target.value))} /> <span className="meta">±{gap}%</span>
         </label>
         <label className="row">
           <input type="checkbox" checked={autoExpand} onChange={(e) => setAutoExpand(e.target.checked)} />

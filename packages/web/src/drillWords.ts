@@ -36,12 +36,15 @@ export const DRILL_WORDS = [
   "water","weather","window","winter","within","without","wonder","world","worry","young",
 ];
 
+// Shorter words render predictably in narrow drill stages.
+const SHORT_DRILL_WORDS = DRILL_WORDS.filter((w) => w.length <= 6);
+
 export function pickRandom(n: number, rnd: () => number = Math.random): string[] {
   const out: string[] = [];
   const used = new Set<number>();
   while (out.length < n) {
-    const i = Math.floor(rnd() * DRILL_WORDS.length);
-    if (!used.has(i)) { used.add(i); out.push(DRILL_WORDS[i]!); }
+    const i = Math.floor(rnd() * SHORT_DRILL_WORDS.length);
+    if (!used.has(i)) { used.add(i); out.push(SHORT_DRILL_WORDS[i]!); }
   }
   return out;
 }

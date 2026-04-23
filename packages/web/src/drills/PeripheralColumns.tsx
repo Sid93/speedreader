@@ -9,7 +9,7 @@ export function PeripheralColumns() {
   const [running, setRunning] = useState(false);
   const [cols, setCols] = useState<[string, string, string]>(["", "", ""]);
   const [ms, setMs] = useState(700);     // display duration
-  const [gap, setGap] = useState(140);   // horizontal gap in px per side
+  const [gap, setGap] = useState(25);   // distance from center, as % of stage width
   const [rounds, setRounds] = useState(0);
   const timer = useRef<number | null>(null);
 
@@ -38,11 +38,9 @@ export function PeripheralColumns() {
       </div>
 
       <div className="peri-stage">
-        <div className="peri-row" style={{ gap: `${gap}px` }}>
-          <span className="peri-word">{running ? cols[0] : ""}</span>
-          <span className="peri-fix" aria-hidden="true" />
-          <span className="peri-word">{running ? cols[2] : ""}</span>
-        </div>
+        <span className="peri-fix" aria-hidden="true" />
+        <span className="peri-word side-left" style={{ right: `calc(50% + ${gap}%)` }}>{running ? cols[0] : ""}</span>
+        <span className="peri-word side-right" style={{ left: `calc(50% + ${gap}%)` }}>{running ? cols[2] : ""}</span>
         <div className="peri-center meta">{running ? cols[1] : ""}</div>
       </div>
 
@@ -55,8 +53,8 @@ export function PeripheralColumns() {
             onChange={(e) => setMs(Number(e.target.value))} /> <span className="meta">{ms}ms</span>
         </label>
         <label className="row"><span className="meta">Span</span>
-          <input type="range" min={80} max={360} step={20} value={gap}
-            onChange={(e) => setGap(Number(e.target.value))} /> <span className="meta">{gap}px</span>
+          <input type="range" min={12} max={30} step={1} value={gap}
+            onChange={(e) => setGap(Number(e.target.value))} /> <span className="meta">±{gap}%</span>
         </label>
       </div>
     </div>
