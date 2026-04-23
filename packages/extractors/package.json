@@ -5,6 +5,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
+    "epubjs": "^0.3.93",
     "pdfjs-dist": "^4.4.168"
   },
   "devDependencies": {

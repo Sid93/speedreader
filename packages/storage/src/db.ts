@@ -5,7 +5,7 @@ export interface LibraryDoc {
   title: string;
   text: string;
   wordCount: number;
-  source: "pdf" | "text" | "article";
+  source: "pdf" | "text" | "article" | "epub";
   addedAt: number;
   lastReadAt: number;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tokenize, getORP, createScheduler, type Scheduler } from "@speedreader/engine";
 import { extractArticle } from "@speedreader/extractors";
+import { saveDoc, saveProgress, getProgress, recordWords, type LibraryDoc } from "@speedreader/storage";
 
 const SPEED_PRESETS = [150, 300, 450, 600, 900];
 const STAGED_KEY = "sr.staged";
@@ -10,8 +11,7 @@ type Staged =
   | { mode: "url"; title: string; url: string; at: number };
 
 export function ReaderApp() {
-  const [title, setTitle] = useState("Speed Reader");
-  const [text, setText] = useState<string | null>(null);
+  const [doc, setDoc] = useState<LibraryDoc | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,14 +25,21 @@ export function ReaderApp() {
           );
           return;
         }
-        setTitle(staged.title);
+        let title = staged.title;
+        let text = "";
+        let source: LibraryDoc["source"] = "text";
         if (staged.mode === "text") {
-          setText(staged.text);
+          text = staged.text;
+          source = "text";
         } else {
           const r = await extractArticle(staged.url);
-          setTitle(r.title || staged.title);
-          setText(r.text);
+          title = r.title || staged.title;
+          text = r.text;
+          source = "article";
         }
+        const wordCount = tokenize(text).length;
+        const saved = await saveDoc({ title, text, source, wordCount });
+        setDoc(saved);
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       }
@@ -40,11 +47,12 @@ export function ReaderApp() {
   }, []);
 
   if (err) return <div className="wrap"><div className="error">{err}</div></div>;
-  if (text === null) return <div className="wrap"><div className="meta">⏳ Extracting...</div></div>;
-  return <Player title={title} text={text} />;
+  if (!doc) return <div className="wrap"><div className="meta">⏳ Extracting...</div></div>;
+  return <Player doc={doc} />;
 }
 
-function Player({ title, text }: { title: string; text: string }) {
+function Player({ doc }: { doc: LibraryDoc }) {
+  const { title, text } = doc;
   const words = useMemo(() => tokenize(text), [text]);
   const [index, setIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -53,9 +61,27 @@ function Player({ title, text }: { title: string; text: string }) {
   const [skipPunct, setSkipPunct] = useState(true);
   const [showContext, setShowContext] = useState(true);
   const [chunkSize, setChunkSize] = useState(1);
+  const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
+  const indexRef = useRef(0);
+  const wpmRef = useRef(300);
+  const hydratedRef = useRef(false);
+  const lastStatIndexRef = useRef(0);
+  indexRef.current = index;
+  wpmRef.current = wpm;
+  hydratedRef.current = hydrated;
 
   useEffect(() => {
+    getProgress(doc.id).then((p) => {
+      const startAt = p?.currentIndex ?? 0;
+      setIndex(startAt);
+      lastStatIndexRef.current = startAt;
+      setHydrated(true);
+    });
+  }, [doc.id]);
+
+  useEffect(() => {
+    if (!hydrated) return;
     const s = createScheduler({
       words,
       wpm,
@@ -64,9 +90,29 @@ function Player({ title, text }: { title: string; text: string }) {
       onTick: (i) => setIndex(i),
       onFinish: () => setIsPlaying(false),
     });
+    s.seek(index);
     schedRef.current = s;
     return () => s.destroy();
-  }, [words]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [words, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const delta = index - lastStatIndexRef.current;
+    if (delta >= 10 || (!isPlaying && delta > 0)) {
+      saveProgress(doc.id, index);
+      recordWords(delta, wpm);
+      lastStatIndexRef.current = index;
+    }
+  }, [index, isPlaying, hydrated, doc.id, wpm]);
+
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (hydratedRef.current) saveProgress(doc.id, indexRef.current);
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [doc.id]);
 
   useEffect(() => { schedRef.current?.setWpm(wpm); }, [wpm]);
   useEffect(() => { schedRef.current?.setSkipPunct(skipPunct); }, [skipPunct]);

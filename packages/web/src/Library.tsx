@@ -35,7 +35,7 @@ export function Library({ onOpen }: { onOpen: (doc: LibraryDoc) => void }) {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600 }}>{d.title}</div>
               <div className="meta">
-                {d.source === "pdf" ? "📄" : d.source === "article" ? "🔗" : "📝"}{" "}
+                {d.source === "pdf" ? "📄" : d.source === "epub" ? "📚" : d.source === "article" ? "🔗" : "📝"}{" "}
                 {d.wordCount.toLocaleString()} words · {pct}% read ·{" "}
                 {new Date(d.lastReadAt).toLocaleDateString()}
               </div>

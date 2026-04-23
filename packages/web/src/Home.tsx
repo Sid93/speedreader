@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { extractPdf, extractText, extractArticle, type ExtractResult } from "@speedreader/extractors";
+import { extractPdf, extractText, extractArticle, extractEpub, type ExtractResult } from "@speedreader/extractors";
 
-type Tab = "pdf" | "text" | "url";
+type Tab = "pdf" | "epub" | "text" | "url";
 
 export function Home({ onLoaded }: { onLoaded: (r: ExtractResult) => void }) {
   const [tab, setTab] = useState<Tab>("pdf");
@@ -28,6 +28,7 @@ export function Home({ onLoaded }: { onLoaded: (r: ExtractResult) => void }) {
     <div>
       <div className="tabs">
         <button className={tab === "pdf" ? "tab active" : "tab"} onClick={() => setTab("pdf")}>📄 PDF</button>
+        <button className={tab === "epub" ? "tab active" : "tab"} onClick={() => setTab("epub")}>📚 EPUB</button>
         <button className={tab === "text" ? "tab active" : "tab"} onClick={() => setTab("text")}>📝 Paste</button>
         <button className={tab === "url" ? "tab active" : "tab"} onClick={() => setTab("url")}>🔗 URL</button>
       </div>
@@ -47,6 +48,23 @@ export function Home({ onLoaded }: { onLoaded: (r: ExtractResult) => void }) {
             <div className="drop-icon">📄</div>
             <div>Click to choose a PDF</div>
             <div className="meta">or drag and drop anywhere on this box</div>
+          </label>
+        )}
+
+        {tab === "epub" && (
+          <label className="drop">
+            <input
+              type="file"
+              accept=".epub"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) run(() => extractEpub(f));
+              }}
+            />
+            <div className="drop-icon">📚</div>
+            <div>Click to choose an EPUB</div>
+            <div className="meta">All chapters are concatenated into one continuous read</div>
           </label>
         )}
 
