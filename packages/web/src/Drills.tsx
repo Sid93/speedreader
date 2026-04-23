@@ -1,8 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PeripheralColumns } from "./drills/PeripheralColumns.js";
+import { WordPair } from "./drills/WordPair.js";
+import { FixationFlash } from "./drills/FixationFlash.js";
 
-// Classic Schulte table: N×N grid of shuffled numbers 1..N². User finds 1, 2,
-// 3, ..., N² in order while keeping gaze fixed on the center cell. Expands
-// peripheral vision — one of the oldest speed-reading drills.
+type Drill = "schulte" | "columns" | "pairs" | "fixation";
+
+export function Drills() {
+  const [drill, setDrill] = useState<Drill>("schulte");
+
+  return (
+    <div>
+      <div className="drill-picker">
+        <button className={drill === "schulte" ? "mode active" : "mode"} onClick={() => setDrill("schulte")}>🧩 Schulte table</button>
+        <button className={drill === "columns" ? "mode active" : "mode"} onClick={() => setDrill("columns")}>🔭 Peripheral columns</button>
+        <button className={drill === "pairs" ? "mode active" : "mode"} onClick={() => setDrill("pairs")}>👀 Word pairs</button>
+        <button className={drill === "fixation" ? "mode active" : "mode"} onClick={() => setDrill("fixation")}>⚡ Fixation flash</button>
+      </div>
+
+      {drill === "schulte" && <Schulte />}
+      {drill === "columns" && <PeripheralColumns />}
+      {drill === "pairs" && <WordPair />}
+      {drill === "fixation" && <FixationFlash />}
+    </div>
+  );
+}
+
+// ── Schulte table (existing) ──────────────────────────────────────────────
 
 const SIZES = [3, 4, 5, 6];
 
@@ -17,7 +40,7 @@ function shuffled(n: number, seed: number): number[] {
   return a;
 }
 
-export function Drills() {
+function Schulte() {
   const [size, setSize] = useState(5);
   const [seed, setSeed] = useState(() => Date.now() & 0xffff);
   const [next, setNext] = useState(1);
@@ -50,6 +73,7 @@ export function Drills() {
         localStorage.setItem("sr.schulte.best", JSON.stringify(nb));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
 
   function restart(newSize = size) {
