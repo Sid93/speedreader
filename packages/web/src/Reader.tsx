@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { tokenize, getORP, createScheduler, sentenceStartAtOrBefore, type Scheduler } from "@speedreader/engine";
+import { tokenize, getORP, createScheduler, sentenceStartAtOrBefore, skim, splitSentences, type Scheduler } from "@speedreader/engine";
 import {
   saveProgress,
   getProgress,
@@ -8,8 +8,9 @@ import {
 } from "@speedreader/storage";
 import { BionicView } from "./BionicView.js";
 import { Quiz } from "./Quiz.js";
+import { SentenceFlash } from "./SentenceFlash.js";
 
-type Mode = "rsvp" | "bionic";
+type Mode = "rsvp" | "bionic" | "flash";
 
 const SPEED_PRESETS = [150, 300, 450, 600, 900];
 
@@ -22,7 +23,10 @@ const FONT_OPTIONS: { label: string; value: string }[] = [
 ];
 
 export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void }) {
-  const words = useMemo(() => tokenize(doc.text), [doc.text]);
+  const [skimMode, setSkimMode] = useState(false);
+  const [skimRatio, setSkimRatio] = useState(0.25);
+  const effectiveText = useMemo(() => (skimMode ? skim(doc.text, skimRatio) : doc.text), [doc.text, skimMode, skimRatio]);
+  const words = useMemo(() => tokenize(effectiveText), [effectiveText]);
   const [index, setIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [wpm, setWpm] = useState(300);
@@ -234,6 +238,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       {!focusMode && (
       <div className="mode-switch">
         <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
+        <button className={mode === "flash" ? "mode active" : "mode"} onClick={() => setMode("flash")} title="Sentence-at-a-time flash">🎬 Flash</button>
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
         <button className="mode" onClick={() => setShowQuiz(true)} title="Test your recall">🧠 Quiz</button>
         <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
@@ -253,9 +258,11 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       )}
       {showHum && <div className="hum-toast">🎵 Hum softly while reading</div>}
 
-      {mode === "bionic" ? (
+      {mode === "flash" ? (
+        <SentenceFlash text={effectiveText} fontSize={Math.max(18, Math.round(fontSize * 0.42))} fontFamily={fontFamily} wpm={wpm} />
+      ) : mode === "bionic" ? (
         <>
-          <BionicView text={doc.text} fontSize={Math.max(16, Math.round(fontSize * 0.38))} intensity={bionicIntensity} fontFamily={fontFamily} />
+          <BionicView text={effectiveText} fontSize={Math.max(16, Math.round(fontSize * 0.38))} intensity={bionicIntensity} fontFamily={fontFamily} />
           <div className="panel">
             <div className="panel-row">
               <strong>Bionic intensity</strong>
@@ -325,6 +332,29 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           <button className="primary play" onClick={toggle}>{isPlaying ? "⏸" : "▶"}</button>
           <button onClick={() => schedRef.current?.step(1)} title="Next (→)">⏩</button>
           {!forwardOnly && <button onClick={() => schedRef.current?.seek(words.length - 1)} title="End">⏭</button>}
+        </div>
+      </div>
+      )}
+
+      {!focusMode && (mode === "rsvp" || mode === "flash") && (
+      <div className="panel" style={{ marginBottom: 12 }}>
+        <div className="panel-row">
+          <strong>💨 Skim mode</strong>
+          <label className="row">
+            <input type="checkbox" checked={skimMode} onChange={(e) => setSkimMode(e.target.checked)} />
+            <span className="meta">{skimMode ? `${Math.round(skimRatio * 100)}% of sentences` : "off"}</span>
+          </label>
+        </div>
+        {skimMode && (
+          <div className="row" style={{ marginTop: 8, gap: 12 }}>
+            <span className="meta">How much</span>
+            <input type="range" min={10} max={50} step={5} value={Math.round(skimRatio * 100)}
+              onChange={(e) => setSkimRatio(Number(e.target.value) / 100)} />
+            <span className="meta">{Math.round(skimRatio * 100)}%</span>
+          </div>
+        )}
+        <div className="meta" style={{ marginTop: 8 }}>
+          Picks the most informative sentences via TextRank. A long article becomes a quick summary you can still RSVP or Flash through.
         </div>
       </div>
       )}

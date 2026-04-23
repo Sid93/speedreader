@@ -454,6 +454,18 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 }
 .mode.active { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,0.1); }
 
+.flash-reader {
+  gap: 28px;
+}
+.flash-sentence {
+  min-height: 160px;
+  max-width: 780px;
+  line-height: 1.45;
+  font-weight: 500;
+  text-align: center;
+  transition: opacity 0.1s ease;
+}
+
 .bionic {
   background: var(--surface);
   border: 1px solid var(--border);
