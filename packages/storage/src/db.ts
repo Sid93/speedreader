@@ -22,6 +22,10 @@ export interface StatsRow {
   totalSessions: number;
   wpmHistory: { t: number; wpm: number }[];
   lastSessionAt: number;
+  /** daily goal in words (default 2000) */
+  dailyGoal?: number;
+  /** map of YYYY-MM-DD -> words read that day */
+  dailyWords?: Record<string, number>;
 }
 
 interface SchemaV1 extends DBSchema {

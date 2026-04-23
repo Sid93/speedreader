@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { tokenize, getORP, createScheduler, type Scheduler } from "@speedreader/engine";
 import { extractArticle } from "@speedreader/extractors";
 import { saveDoc, saveProgress, getProgress, recordWords, type LibraryDoc } from "@speedreader/storage";
-import { bionicSplit } from "@speedreader/engine";
+import { bionicSplit, sentenceStartAtOrBefore } from "@speedreader/engine";
 
 type Mode = "rsvp" | "bionic";
 
@@ -97,11 +97,13 @@ function Player({ doc }: { doc: LibraryDoc }) {
 
   useEffect(() => {
     getProgress(doc.id).then((p) => {
-      const startAt = p?.currentIndex ?? 0;
+      const raw = p?.currentIndex ?? 0;
+      const startAt = raw > 5 ? sentenceStartAtOrBefore(words, raw, 40) : raw;
       setIndex(startAt);
       lastStatIndexRef.current = startAt;
       setHydrated(true);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.id]);
 
   useEffect(() => {
@@ -137,8 +139,19 @@ function Player({ doc }: { doc: LibraryDoc }) {
     const onBeforeUnload = () => {
       if (hydratedRef.current) saveProgress(doc.id, indexRef.current);
     };
+    const onVisibility = () => {
+      if (document.hidden && schedRef.current?.getState().isPlaying) {
+        schedRef.current.pause();
+        setIsPlaying(false);
+        if (hydratedRef.current) saveProgress(doc.id, indexRef.current);
+      }
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [doc.id]);
 
   useEffect(() => { schedRef.current?.setWpm(wpm); }, [wpm]);

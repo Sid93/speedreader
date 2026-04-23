@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { tokenize, getORP, createScheduler, type Scheduler } from "@speedreader/engine";
+import { tokenize, getORP, createScheduler, sentenceStartAtOrBefore, type Scheduler } from "@speedreader/engine";
 import {
   saveProgress,
   getProgress,
@@ -24,6 +24,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [mode, setMode] = useState<Mode>("rsvp");
   const [naturalPauses, setNaturalPauses] = useState(true);
   const [adaptivePacing, setAdaptivePacing] = useState(false);
+  const [bionicIntensity, setBionicIntensity] = useState(0.45);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const lastStatIndexRef = useRef(0);
@@ -37,11 +38,14 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   // Hydrate initial position from saved progress
   useEffect(() => {
     getProgress(doc.id).then((p) => {
-      const startAt = p?.currentIndex ?? 0;
+      const raw = p?.currentIndex ?? 0;
+      // Resume from the nearest earlier sentence start for easier re-entry.
+      const startAt = raw > 5 ? sentenceStartAtOrBefore(words, raw, 40) : raw;
       setIndex(startAt);
       lastStatIndexRef.current = startAt;
       setHydrated(true);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.id]);
 
   useEffect(() => {
@@ -103,8 +107,19 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
     const onBeforeUnload = () => {
       if (hydratedRef.current) saveProgress(doc.id, indexRef.current);
     };
+    const onVisibility = () => {
+      if (document.hidden && schedRef.current?.getState().isPlaying) {
+        schedRef.current.pause();
+        setIsPlaying(false);
+        if (hydratedRef.current) saveProgress(doc.id, indexRef.current);
+      }
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [doc.id]);
 
   useEffect(() => {
@@ -155,7 +170,23 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>
 
       {mode === "bionic" ? (
-        <BionicView text={doc.text} fontSize={Math.max(16, Math.round(fontSize * 0.38))} />
+        <>
+          <BionicView text={doc.text} fontSize={Math.max(16, Math.round(fontSize * 0.38))} intensity={bionicIntensity} />
+          <div className="panel">
+            <div className="panel-row">
+              <strong>Bionic intensity</strong>
+              <span className="meta">{Math.round(bionicIntensity * 100)}% letters bolded</span>
+            </div>
+            <div className="presets">
+              {[0.3, 0.45, 0.6].map((v) => (
+                <button key={v} className={Math.abs(bionicIntensity - v) < 0.01 ? "preset active" : "preset"}
+                  onClick={() => setBionicIntensity(v)}>
+                  {Math.round(v * 100)}%
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       ) : (
       <div className="reader">
         <div className="word anchored" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)) }}>

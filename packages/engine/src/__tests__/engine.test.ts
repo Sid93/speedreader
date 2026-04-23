@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { tokenize, isPunctuationOnly, getORP, createScheduler, bionicSplit } from "../index.js";
+import { tokenize, isPunctuationOnly, getORP, createScheduler, bionicSplit, sentenceStartAtOrBefore, endsSentence } from "../index.js";
 
 describe("tokenize", () => {
   it("splits on whitespace and drops empties", () => {
@@ -25,6 +25,22 @@ describe("getORP", () => {
   it("puts ORP at ~30% of length", () => {
     expect(getORP("reading").before.length).toBe(2); // floor(7*0.3)=2
     expect(getORP("a").before.length).toBe(0);
+  });
+});
+
+describe("sentenceStartAtOrBefore", () => {
+  const words = ["Alpha", "beta", "gamma.", "Delta", "epsilon", "zeta"];
+  it("returns index after the nearest sentence-ender", () => {
+    expect(sentenceStartAtOrBefore(words, 5)).toBe(3);
+    expect(sentenceStartAtOrBefore(words, 4)).toBe(3);
+  });
+  it("returns 0 when no sentence-ender in lookback", () => {
+    expect(sentenceStartAtOrBefore(["no", "periods", "here", "yes"], 3)).toBe(0);
+  });
+  it("endsSentence detects period/question/exclaim with trailing quotes", () => {
+    expect(endsSentence("done.")).toBe(true);
+    expect(endsSentence('said."')).toBe(true);
+    expect(endsSentence("running")).toBe(false);
   });
 });
 

@@ -254,6 +254,21 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   margin-top: 6px;
 }
 
+.goal-card {
+  background: linear-gradient(135deg, var(--surface), var(--surface2));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.goal-card input[type="number"] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
 .continue-card {
   display: block;
   width: 100%;
