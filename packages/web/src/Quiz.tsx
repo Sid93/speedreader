@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { buildQuiz, type QuizQuestion } from "@speedreader/engine";
 
-export function Quiz({ text, onClose }: { text: string; onClose: () => void }) {
+export function Quiz({ text, onClose, onScore }: { text: string; onClose: () => void; onScore?: (correct: number, total: number) => void }) {
   const [seed, setSeed] = useState(Date.now() & 0xffff);
   const questions = useMemo<QuizQuestion[]>(() => buildQuiz(text, { count: 3, seed }), [text, seed]);
   const [picks, setPicks] = useState<(string | null)[]>(() => questions.map(() => null));
@@ -62,7 +62,7 @@ export function Quiz({ text, onClose }: { text: string; onClose: () => void }) {
         <button
           className="primary"
           disabled={!allAnswered}
-          onClick={() => setSubmitted(true)}
+          onClick={() => { setSubmitted(true); onScore?.(correct, questions.length); }}
           style={{ marginTop: 14 }}
         >
           Submit →

@@ -47,6 +47,21 @@ export async function recordWords(words: number, wpm: number): Promise<void> {
   await db.put("stats", updated);
 }
 
+export async function recordBenchmark(wpm: number, comprehensionPct: number): Promise<void> {
+  const db = await getDB();
+  const cur = (await db.get("stats", "global")) ?? EMPTY;
+  const trueWpm = Math.round(wpm * (comprehensionPct / 100));
+  const updated: StatsRow = {
+    ...EMPTY,
+    ...cur,
+    benchmarkHistory: [
+      ...((cur.benchmarkHistory ?? []).slice(-49)),
+      { t: Date.now(), wpm, comprehensionPct, trueWpm },
+    ],
+  };
+  await db.put("stats", updated);
+}
+
 export async function setDailyGoal(goal: number): Promise<void> {
   const db = await getDB();
   const cur = (await db.get("stats", "global")) ?? EMPTY;

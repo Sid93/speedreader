@@ -26,6 +26,8 @@ export interface StatsRow {
   dailyGoal?: number;
   /** map of YYYY-MM-DD -> words read that day */
   dailyWords?: Record<string, number>;
+  /** benchmark test results over time */
+  benchmarkHistory?: { t: number; wpm: number; comprehensionPct: number; trueWpm: number }[];
 }
 
 interface SchemaV1 extends DBSchema {

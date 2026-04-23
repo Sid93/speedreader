@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getStats, calculateStreak, setDailyGoal, type StatsRow } from "@speedreader/storage";
+import { Benchmark } from "./Benchmark.js";
 
 function today(): string {
   const d = new Date();
@@ -8,8 +9,11 @@ function today(): string {
 
 export function Stats() {
   const [stats, setStats] = useState<StatsRow | null>(null);
-  useEffect(() => { getStats().then(setStats); }, []);
+  const [showBench, setShowBench] = useState(false);
+  useEffect(() => { getStats().then(setStats); }, [showBench]);
   if (!stats) return <p className="meta">Loading...</p>;
+
+  if (showBench) return <Benchmark onClose={() => setShowBench(false)} />;
 
   const baselineWpm = 250;
   const avgWpm =
@@ -65,6 +69,30 @@ export function Stats() {
           label="Time saved vs 250 WPM"
           value={savedMin > 60 ? `${(savedMin / 60).toFixed(1)} h` : `${Math.round(savedMin)} min`}
         />
+      </div>
+
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-row">
+          <div>
+            <strong>📊 WPM benchmark</strong>
+            <div className="meta">Measure your true reading speed with a standard passage + quiz.</div>
+          </div>
+          <button className="primary" onClick={() => setShowBench(true)}>Run test</button>
+        </div>
+        {(stats.benchmarkHistory?.length ?? 0) > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div className="meta" style={{ marginBottom: 6 }}>History</div>
+            <div className="bench-list">
+              {stats.benchmarkHistory!.slice().reverse().slice(0, 8).map((b, i) => (
+                <div key={i} className="bench-row">
+                  <span className="meta">{new Date(b.t).toLocaleDateString()}</span>
+                  <span>{b.trueWpm} <span className="meta">true</span></span>
+                  <span className="meta">{b.wpm} raw · {b.comprehensionPct}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

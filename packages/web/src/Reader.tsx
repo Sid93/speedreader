@@ -30,6 +30,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [focusMode, setFocusMode] = useState(false);
   const [warmup, setWarmup] = useState(false);
   const [metronome, setMetronome] = useState(false);
+  const [forwardOnly, setForwardOnly] = useState(false);
+  const [chunkLadder, setChunkLadder] = useState(false);
+  const [humReminder, setHumReminder] = useState(false);
+  const [showHum, setShowHum] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
@@ -159,7 +163,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       switch (e.key) {
         case " ": e.preventDefault(); toggle(); break;
-        case "ArrowLeft": e.preventDefault(); schedRef.current?.step(-1); break;
+        case "ArrowLeft": e.preventDefault(); if (!forwardOnly) schedRef.current?.step(-1); break;
         case "ArrowRight": e.preventDefault(); schedRef.current?.step(1); break;
         case "ArrowUp": e.preventDefault(); setWpm((w) => Math.min(1000, w + 50)); break;
         case "ArrowDown": e.preventDefault(); setWpm((w) => Math.max(100, w - 50)); break;
@@ -175,8 +179,14 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   function toggle() {
     const s = schedRef.current;
     if (!s) return;
+    const wasPlaying = s.getState().isPlaying;
     s.toggle();
-    setIsPlaying(s.getState().isPlaying);
+    const nowPlaying = s.getState().isPlaying;
+    setIsPlaying(nowPlaying);
+    if (!wasPlaying && nowPlaying && humReminder) {
+      setShowHum(true);
+      setTimeout(() => setShowHum(false), 2800);
+    }
   }
 
   const chunk = words.slice(index, index + chunkSize);
@@ -211,7 +221,18 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>
       )}
 
-      {showQuiz && <Quiz text={doc.text} onClose={() => setShowQuiz(false)} />}
+      {showQuiz && (
+        <Quiz
+          text={doc.text}
+          onClose={() => setShowQuiz(false)}
+          onScore={(correct, total) => {
+            if (chunkLadder && total > 0 && correct / total >= 0.7 && chunkSize < 4) {
+              setChunkSize((c) => Math.min(4, c + 1));
+            }
+          }}
+        />
+      )}
+      {showHum && <div className="hum-toast">🎵 Hum softly while reading</div>}
 
       {mode === "bionic" ? (
         <>
@@ -262,23 +283,29 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
             <span className="meta">Word {index + 1} of {words.length.toLocaleString()}</span>
             <span className="meta">{minLeft > 0 ? `~${minLeft} min left` : "Almost done"}</span>
           </div>
-          <input
-            type="range"
-            className="scrubber"
-            min={0}
-            max={Math.max(0, words.length - 1)}
-            value={index}
-            onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
-            aria-label="Scrub through words"
-          />
+          {!forwardOnly ? (
+            <input
+              type="range"
+              className="scrubber"
+              min={0}
+              max={Math.max(0, words.length - 1)}
+              value={index}
+              onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
+              aria-label="Scrub through words"
+            />
+          ) : (
+            <div className="progress" style={{ marginTop: 10 }}>
+              <div className="progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+          )}
         </div>}
 
         <div className="controls">
-          <button onClick={() => { schedRef.current?.seek(0); setIsPlaying(false); }} title="Rewind (R)">⏮</button>
-          <button onClick={() => schedRef.current?.step(-1)} title="Prev (←)">⏪</button>
+          {!forwardOnly && <button onClick={() => { schedRef.current?.seek(0); setIsPlaying(false); }} title="Rewind (R)">⏮</button>}
+          {!forwardOnly && <button onClick={() => schedRef.current?.step(-1)} title="Prev (←)">⏪</button>}
           <button className="primary play" onClick={toggle}>{isPlaying ? "⏸" : "▶"}</button>
           <button onClick={() => schedRef.current?.step(1)} title="Next (→)">⏩</button>
-          <button onClick={() => schedRef.current?.seek(words.length - 1)} title="End">⏭</button>
+          {!forwardOnly && <button onClick={() => schedRef.current?.seek(words.length - 1)} title="End">⏭</button>}
         </div>
       </div>
       )}
@@ -357,6 +384,18 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           <label className="row" title="Soft click sound on every word — suppresses subvocalization">
             <input type="checkbox" checked={metronome} onChange={(e) => setMetronome(e.target.checked)} />
             <span className="meta">Metronome tick</span>
+          </label>
+          <label className="row" title="Disables the scrubber and the rewind/prev buttons. Forces forward-only reading to break the re-read habit.">
+            <input type="checkbox" checked={forwardOnly} onChange={(e) => setForwardOnly(e.target.checked)} />
+            <span className="meta">Forward-only (no regression)</span>
+          </label>
+          <label className="row" title="After each quiz: if you score ≥70%, the Bunching size auto-bumps by one (up to 4×).">
+            <input type="checkbox" checked={chunkLadder} onChange={(e) => setChunkLadder(e.target.checked)} />
+            <span className="meta">Chunk ladder</span>
+          </label>
+          <label className="row" title="Pops a 'Hum softly' reminder when you press Play. Humming blocks the inner voice that caps WPM.">
+            <input type="checkbox" checked={humReminder} onChange={(e) => setHumReminder(e.target.checked)} />
+            <span className="meta">Hum reminder</span>
           </label>
         </div>
         <div className="meta" style={{ marginTop: 12 }}>
