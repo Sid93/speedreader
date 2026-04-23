@@ -83,6 +83,8 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [showContext, setShowContext] = useState(true);
   const [chunkSize, setChunkSize] = useState(1);
   const [mode, setMode] = useState<Mode>("rsvp");
+  const [naturalPauses, setNaturalPauses] = useState(true);
+  const [adaptivePacing, setAdaptivePacing] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const indexRef = useRef(0);
@@ -109,6 +111,9 @@ function Player({ doc }: { doc: LibraryDoc }) {
       wpm,
       skipPunct,
       chunkSize,
+      sentencePauseMs: naturalPauses ? 250 : 0,
+      commaPauseMs: naturalPauses ? 80 : 0,
+      adaptivePacing,
       onTick: (i) => setIndex(i),
       onFinish: () => setIsPlaying(false),
     });
@@ -139,6 +144,11 @@ function Player({ doc }: { doc: LibraryDoc }) {
   useEffect(() => { schedRef.current?.setWpm(wpm); }, [wpm]);
   useEffect(() => { schedRef.current?.setSkipPunct(skipPunct); }, [skipPunct]);
   useEffect(() => { schedRef.current?.setChunkSize(chunkSize); }, [chunkSize]);
+  useEffect(() => {
+    schedRef.current?.setSentencePauseMs(naturalPauses ? 250 : 0);
+    schedRef.current?.setCommaPauseMs(naturalPauses ? 80 : 0);
+  }, [naturalPauses]);
+  useEffect(() => { schedRef.current?.setAdaptivePacing(adaptivePacing); }, [adaptivePacing]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -283,6 +293,14 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <label className="row">
             <input type="checkbox" checked={skipPunct} onChange={(e) => setSkipPunct(e.target.checked)} />
             <span className="meta">Skip punctuation</span>
+          </label>
+          <label className="row" title="Extra pause after . ! ? and , ; :">
+            <input type="checkbox" checked={naturalPauses} onChange={(e) => setNaturalPauses(e.target.checked)} />
+            <span className="meta">Natural pauses</span>
+          </label>
+          <label className="row" title="Longer words get proportionally more time">
+            <input type="checkbox" checked={adaptivePacing} onChange={(e) => setAdaptivePacing(e.target.checked)} />
+            <span className="meta">Adaptive pacing</span>
           </label>
         </div>
       </div>

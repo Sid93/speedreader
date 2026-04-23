@@ -22,6 +22,8 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [showContext, setShowContext] = useState(true);
   const [chunkSize, setChunkSize] = useState(1);
   const [mode, setMode] = useState<Mode>("rsvp");
+  const [naturalPauses, setNaturalPauses] = useState(true);
+  const [adaptivePacing, setAdaptivePacing] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
   const lastStatIndexRef = useRef(0);
@@ -49,6 +51,9 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       wpm,
       skipPunct,
       chunkSize,
+      sentencePauseMs: naturalPauses ? 250 : 0,
+      commaPauseMs: naturalPauses ? 80 : 0,
+      adaptivePacing,
       onTick: (i) => setIndex(i),
       onFinish: () => setIsPlaying(false),
     });
@@ -62,6 +67,11 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   useEffect(() => { schedRef.current?.setWpm(wpm); }, [wpm]);
   useEffect(() => { schedRef.current?.setSkipPunct(skipPunct); }, [skipPunct]);
   useEffect(() => { schedRef.current?.setChunkSize(chunkSize); }, [chunkSize]);
+  useEffect(() => {
+    schedRef.current?.setSentencePauseMs(naturalPauses ? 250 : 0);
+    schedRef.current?.setCommaPauseMs(naturalPauses ? 80 : 0);
+  }, [naturalPauses]);
+  useEffect(() => { schedRef.current?.setAdaptivePacing(adaptivePacing); }, [adaptivePacing]);
 
   // Autosave progress on every tick (debounced via RAF-ish: every 10 words or pause)
   useEffect(() => {
@@ -256,6 +266,14 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           <label className="row">
             <input type="checkbox" checked={skipPunct} onChange={(e) => setSkipPunct(e.target.checked)} />
             <span className="meta">Skip punctuation</span>
+          </label>
+          <label className="row" title="Extra ~250ms after . ! ? and ~80ms after , ; :">
+            <input type="checkbox" checked={naturalPauses} onChange={(e) => setNaturalPauses(e.target.checked)} />
+            <span className="meta">Natural pauses</span>
+          </label>
+          <label className="row" title="Longer words get proportionally more time">
+            <input type="checkbox" checked={adaptivePacing} onChange={(e) => setAdaptivePacing(e.target.checked)} />
+            <span className="meta">Adaptive pacing</span>
           </label>
         </div>
         <div className="meta" style={{ marginTop: 12 }}>

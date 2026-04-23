@@ -254,6 +254,23 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   margin-top: 6px;
 }
 
+.continue-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: linear-gradient(135deg, var(--surface), var(--surface2));
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.continue-card:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.2); }
+.continue-label { color: var(--accent); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+.continue-title { font-weight: 600; font-size: 1.05rem; }
+.continue-meta { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+
 .mode-switch {
   display: flex;
   gap: 8px;

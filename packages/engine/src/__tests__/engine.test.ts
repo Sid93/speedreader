@@ -109,6 +109,23 @@ describe("scheduler", () => {
     expect(ticks).toEqual([0, 3, 6]);
   });
 
+  it("adds extra delay after sentence-ending word", () => {
+    const ticks: number[] = [];
+    const sched = createScheduler({
+      words: ["Hi.", "Then", "next"],
+      wpm: 600, // base 100ms/word
+      sentencePauseMs: 200,
+      onTick: (i) => ticks.push(i),
+    });
+    sched.play();
+    expect(ticks).toEqual([0]); // emit at "Hi."
+    // Base 100ms + 200ms sentence pause = 300ms before advancing.
+    vi.advanceTimersByTime(100);
+    expect(ticks).toEqual([0]);
+    vi.advanceTimersByTime(200);
+    expect(ticks).toEqual([0, 1]);
+  });
+
   it("step(1) advances and pauses", () => {
     const ticks: number[] = [];
     const sched = createScheduler({
