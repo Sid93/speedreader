@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Speed Reader",
+  "version": "0.1.0",
+  "description": "Right-click any page or selection to speed-read it with RSVP.",
+  "action": {
+    "default_title": "Speed Reader",
+    "default_popup": "src/reader/index.html"
+  },
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  }
+}
