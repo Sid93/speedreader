@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PeripheralColumns } from "./drills/PeripheralColumns.js";
 import { WordPair } from "./drills/WordPair.js";
 import { FixationFlash } from "./drills/FixationFlash.js";
+import { EyeExercise } from "./drills/EyeExercise.js";
 
-type Drill = "schulte" | "columns" | "pairs" | "fixation";
+type Drill = "schulte" | "columns" | "pairs" | "fixation" | "eye";
 
 export function Drills() {
   const [drill, setDrill] = useState<Drill>("schulte");
@@ -15,12 +16,14 @@ export function Drills() {
         <button className={drill === "columns" ? "mode active" : "mode"} onClick={() => setDrill("columns")}>🔭 Peripheral columns</button>
         <button className={drill === "pairs" ? "mode active" : "mode"} onClick={() => setDrill("pairs")}>👀 Word pairs</button>
         <button className={drill === "fixation" ? "mode active" : "mode"} onClick={() => setDrill("fixation")}>⚡ Fixation flash</button>
+        <button className={drill === "eye" ? "mode active" : "mode"} onClick={() => setDrill("eye")}>👁️ Eye exercise</button>
       </div>
 
       {drill === "schulte" && <Schulte />}
       {drill === "columns" && <PeripheralColumns />}
       {drill === "pairs" && <WordPair />}
       {drill === "fixation" && <FixationFlash />}
+      {drill === "eye" && <EyeExercise />}
     </div>
   );
 }

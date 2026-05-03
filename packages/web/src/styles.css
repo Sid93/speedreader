@@ -181,6 +181,36 @@ h1 span {
 }
 .panel-row strong { font-size: 1rem; font-weight: 600; }
 
+/* ── Reader header (compact) ────────────────────────────────────────── */
+.reader-header {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.header-btn {
+  width: 44px; height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.header-btn:hover { background: var(--surface-2); }
+.header-title { text-align: center; min-width: 0; }
+.header-doc-title {
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.header-doc-meta { font-size: 0.78rem; margin-top: 2px; }
+
 /* ── Reader card ────────────────────────────────────────────────────── */
 .reader {
   padding: 44px 24px 28px;
@@ -227,6 +257,11 @@ h1 span {
   font-size: 0.92rem;
 }
 
+/* Subtle word fade-in to soften RSVP transitions */
+@keyframes wordIn { from { opacity: 0.55; transform: translateY(1px); } to { opacity: 1; transform: none; } }
+.reader .word { animation: wordIn 70ms var(--ease-out); }
+.reader .word .orp { text-shadow: 0 0 14px color-mix(in srgb, var(--red) 35%, transparent); }
+
 /* ── Progress + scrubber ────────────────────────────────────────────── */
 .progress {
   width: 100%;
@@ -240,6 +275,27 @@ h1 span {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 120ms linear;
+}
+.scrubber-wrap {
+  position: relative;
+  width: 100%;
+}
+.paragraph-marks {
+  position: absolute;
+  top: 14px;
+  left: 0; right: 0;
+  height: 6px;
+  pointer-events: none;
+}
+.paragraph-tick {
+  position: absolute;
+  top: 1px;
+  width: 2px;
+  height: 4px;
+  background: var(--text-faint);
+  border-radius: 1px;
+  transform: translateX(-1px);
+  opacity: 0.6;
 }
 .scrubber {
   width: 100%;
@@ -316,12 +372,55 @@ button.primary.play {
 }
 
 /* Reader controls */
+.control-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin-top: 4px;
+}
+@media (max-width: 600px) {
+  .control-bar { grid-template-columns: 1fr; gap: 14px; }
+}
+.speed-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: end;
+}
+@media (max-width: 600px) { .speed-inline { justify-self: center; } }
+.speed-btn {
+  width: 36px; height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1rem;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+}
+.speed-btn:hover { border-color: var(--accent); color: var(--accent); }
+.wpm-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  line-height: 1;
+  border: 1px solid transparent;
+  min-width: 76px;
+}
+.wpm-pill:hover { border-color: var(--accent); }
+.wpm-num { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+.wpm-unit { font-size: 0.62rem; color: var(--text-muted); margin-top: 2px; letter-spacing: 0.08em; }
+
 .controls {
   display: flex;
   gap: 10px;
   align-items: center;
-  margin-top: 6px;
+  justify-self: start;
 }
+@media (max-width: 600px) { .controls { justify-self: center; } }
 .controls button:not(.primary) {
   width: 44px; height: 44px;
   padding: 0;
@@ -897,6 +996,85 @@ input[type="checkbox"]:checked::after {
   background: color-mix(in srgb, var(--red) 10%, transparent);
 }
 .quiz-result { margin-top: 18px; text-align: center; }
+
+/* ── Eye exercise stage ─────────────────────────────────────────────── */
+.eye-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-top: 14px;
+  overflow: hidden;
+  transition: background 1.4s var(--ease-out), filter 1.4s var(--ease-out);
+}
+.eye-stage.dim    { background: #0a0a0e; filter: brightness(0.55); }
+.eye-stage.bright { background: #f5f5fa; filter: brightness(1.1); }
+
+.eye-dot {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 18px; height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 22px var(--accent);
+  transition: transform 0.7s cubic-bezier(0.45, 0, 0.55, 1),
+              opacity 0.5s ease;
+}
+.eye-dot.sharp { width: 14px; height: 14px; opacity: 1; box-shadow: 0 0 18px var(--accent); }
+.eye-dot.soft  { width: 22px; height: 22px; opacity: 0.45; box-shadow: 0 0 32px var(--accent); }
+.eye-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 220px; height: 220px;
+  margin: -110px 0 0 -110px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-2);
+  transition: opacity 0.6s ease, border-color 0.6s ease, width 0.6s ease, height 0.6s ease;
+}
+.eye-ring.sharp { opacity: 0.85; border-color: var(--accent-2); }
+.eye-ring.soft  { opacity: 0.25; }
+
+/* ── Settings drawer ────────────────────────────────────────────────── */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 18, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 90;
+  animation: imgFade 0.18s ease;
+}
+.drawer {
+  position: fixed;
+  top: 0; right: 0;
+  height: 100vh;
+  width: min(420px, 92vw);
+  z-index: 100;
+  background: var(--bg-1);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  padding: 22px 22px 60px;
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform 280ms var(--ease-out);
+}
+.drawer.open { transform: translateX(0); }
+.drawer .panel { background: var(--surface); }
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  margin-bottom: 4px;
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, var(--bg-1) 70%, transparent);
+  z-index: 1;
+}
+.drawer-header strong { font-size: 1.05rem; font-weight: 600; }
 
 /* ── kbd ────────────────────────────────────────────────────────────── */
 kbd {

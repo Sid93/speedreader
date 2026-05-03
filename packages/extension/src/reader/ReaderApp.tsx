@@ -364,7 +364,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <span className="meta">{chunkSize === 1 ? "off" : `${chunkSize} words/chunk · ${wpm * chunkSize} eff. WPM`}</span>
         </div>
         <div className="presets">
-          {[1, 2, 3, 4].map((n) => (
+          {[1, 2, 3, 4, 5].map((n) => (
             <button key={n} className={chunkSize === n ? "preset active" : "preset"} onClick={() => setChunkSize(n)}>
               {n === 1 ? "Off" : `${n}×`}
             </button>

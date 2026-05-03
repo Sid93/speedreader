@@ -45,6 +45,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   useEffect(() => { localStorage.setItem("sr.fontFamily", fontFamily); }, [fontFamily]);
   const [showQuiz, setShowQuiz] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [warmup, setWarmup] = useState(false);
   const [metronome, setMetronome] = useState(false);
   const [forwardOnly, setForwardOnly] = useState(false);
@@ -223,16 +224,40 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const progress = words.length > 1 ? (index / (words.length - 1)) * 100 : 0;
   const wordsLeft = words.length - index - 1;
   const minLeft = Math.max(0, Math.ceil(wordsLeft / wpm));
+  const secondsLeft = Math.max(0, Math.round((wordsLeft / wpm) * 60));
+  const timeLeftLabel =
+    wordsLeft <= 0 ? "Almost done" :
+    secondsLeft < 60 ? `${secondsLeft}s left` :
+    secondsLeft < 600 ? `${Math.floor(secondsLeft/60)}m ${String(secondsLeft%60).padStart(2,"0")}s left` :
+    `${Math.ceil(secondsLeft/60)}m left`;
+
+  // Paragraph boundary positions, expressed as percentages of total length.
+  const paragraphMarks = useMemo<number[]>(() => {
+    const marks: number[] = [];
+    if (words.length < 4) return marks;
+    let wordIdx = 0;
+    const re = /(\S+|\n\n+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(effectiveText)) !== null) {
+      if (/^\n\n+/.test(m[0])) {
+        marks.push((wordIdx / Math.max(1, words.length - 1)) * 100);
+      } else {
+        wordIdx++;
+      }
+    }
+    return marks;
+  }, [effectiveText, words.length]);
 
   return (
     <div className={focusMode ? "app focus-mode" : "app"}>
       {!focusMode && (
-        <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
-          <button onClick={onBack}>← Back</button>
-          <div className="meta" style={{ textAlign: "right" }}>
-            <strong>{doc.title}</strong>
-            <div>{words.length.toLocaleString()} words · ~{Math.ceil(words.length / wpm)} min @ {wpm} WPM</div>
+        <div className="reader-header">
+          <button className="header-btn" onClick={onBack} aria-label="Back to library">←</button>
+          <div className="header-title">
+            <div className="header-doc-title" title={doc.title}>{doc.title}</div>
+            <div className="meta header-doc-meta">{words.length.toLocaleString()} words · ~{Math.ceil(words.length / wpm)} min</div>
           </div>
+          <button className="header-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">⚙︎</button>
         </div>
       )}
       {focusMode && (
@@ -259,8 +284,8 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           text={doc.text}
           onClose={() => setShowQuiz(false)}
           onScore={(correct, total) => {
-            if (chunkLadder && total > 0 && correct / total >= 0.7 && chunkSize < 4) {
-              setChunkSize((c) => Math.min(4, c + 1));
+            if (chunkLadder && total > 0 && correct / total >= 0.7 && chunkSize < 5) {
+              setChunkSize((c) => Math.min(5, c + 1));
             }
           }}
         />
@@ -330,48 +355,81 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           </div>
         </div>
 
-        {showContext && !focusMode && (
-          <div className="context meta">
-            <span>{index > 0 ? words[index - 1] : "—"}</span>
-            <span style={{ opacity: 0.4 }}>···</span>
-            <span>{index < words.length - 1 ? words[index + 1] : "—"}</span>
-          </div>
-        )}
+        {showContext && !focusMode && (() => {
+          const isMarker = (w?: string) => !!w && /‹IMG:\d+›/.test(w);
+          let prevWord = "—";
+          for (let i = index - 1; i >= 0; i--) if (!isMarker(words[i])) { prevWord = words[i]!; break; }
+          let nextWord = "—";
+          for (let i = index + 1; i < words.length; i++) if (!isMarker(words[i])) { nextWord = words[i]!; break; }
+          return (
+            <div className="context meta">
+              <span>{prevWord}</span>
+              <span style={{ opacity: 0.4 }}>···</span>
+              <span>{nextWord}</span>
+            </div>
+          );
+        })()}
 
         {!focusMode && <div style={{ width: "100%" }}>
           <div className="row" style={{ justifyContent: "space-between" }}>
             <span className="meta">Word {index + 1} of {words.length.toLocaleString()}</span>
-            <span className="meta">{minLeft > 0 ? `~${minLeft} min left` : "Almost done"}</span>
+            <span className="meta">{timeLeftLabel}</span>
           </div>
-          {!forwardOnly ? (
-            <input
-              type="range"
-              className="scrubber"
-              min={0}
-              max={Math.max(0, words.length - 1)}
-              value={index}
-              onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
-              aria-label="Scrub through words"
-            />
-          ) : (
-            <div className="progress" style={{ marginTop: 10 }}>
-              <div className="progress-fill" style={{ width: `${progress}%` }} />
+          <div className="scrubber-wrap">
+            {!forwardOnly ? (
+              <input
+                type="range"
+                className="scrubber"
+                min={0}
+                max={Math.max(0, words.length - 1)}
+                value={index}
+                onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
+                aria-label="Scrub through words"
+              />
+            ) : (
+              <div className="progress" style={{ marginTop: 10 }}>
+                <div className="progress-fill" style={{ width: `${progress}%` }} />
+              </div>
+            )}
+            <div className="paragraph-marks" aria-hidden="true">
+              {paragraphMarks.map((p, i) => (
+                <span key={i} className="paragraph-tick" style={{ left: `${p}%` }} />
+              ))}
             </div>
-          )}
+          </div>
         </div>}
 
-        <div className="controls">
-          {!forwardOnly && <button onClick={() => { schedRef.current?.seek(0); setIsPlaying(false); }} title="Rewind (R)">⏮</button>}
-          {!forwardOnly && <button onClick={() => schedRef.current?.step(-1)} title="Prev (←)">⏪</button>}
-          <button className="primary play" onClick={toggle}>{isPlaying ? "⏸" : "▶"}</button>
-          <button onClick={() => schedRef.current?.step(1)} title="Next (→)">⏩</button>
-          {!forwardOnly && <button onClick={() => schedRef.current?.seek(words.length - 1)} title="End">⏭</button>}
+        <div className="control-bar">
+          <div className="speed-inline">
+            <button className="speed-btn" onClick={() => setWpm((w) => Math.max(100, w - 25))} title="Slower">−</button>
+            <button className="wpm-pill" onClick={() => setSettingsOpen(true)} title="Open settings">
+              <span className="wpm-num">{wpm}</span>
+              <span className="wpm-unit">WPM</span>
+            </button>
+            <button className="speed-btn" onClick={() => setWpm((w) => Math.min(1000, w + 25))} title="Faster">+</button>
+          </div>
+          <div className="controls">
+            {!forwardOnly && <button onClick={() => { schedRef.current?.seek(0); setIsPlaying(false); }} title="Rewind (R)">⏮</button>}
+            {!forwardOnly && <button onClick={() => schedRef.current?.step(-1)} title="Prev (←)">⏪</button>}
+            <button className="primary play" onClick={toggle}>{isPlaying ? "⏸" : "▶"}</button>
+            <button onClick={() => schedRef.current?.step(1)} title="Next (→)">⏩</button>
+            {!forwardOnly && <button onClick={() => schedRef.current?.seek(words.length - 1)} title="End">⏭</button>}
+          </div>
         </div>
       </div>
       )}
 
-      {!focusMode && (mode === "rsvp" || mode === "flash") && (
-      <div className="panel" style={{ marginBottom: 12 }}>
+      {!focusMode && (
+      <>
+      {settingsOpen && <div className="drawer-backdrop" onClick={() => setSettingsOpen(false)} />}
+      <aside className={settingsOpen ? "drawer open" : "drawer"} aria-hidden={!settingsOpen}>
+      <div className="drawer-header">
+        <strong>Settings</strong>
+        <button className="header-btn" onClick={() => setSettingsOpen(false)} aria-label="Close">✕</button>
+      </div>
+
+      {(mode === "rsvp" || mode === "flash") && (
+      <div className="panel" style={{ marginTop: 0 }}>
         <div className="panel-row">
           <strong>💨 Skim mode</strong>
           <label className="row">
@@ -393,7 +451,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>
       )}
 
-      {mode === "rsvp" && !focusMode && (
+      {mode === "rsvp" && (
       <>
       <div className="panel">
         <div className="panel-row">
@@ -420,7 +478,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           <span className="meta">{chunkSize === 1 ? "off" : `${chunkSize} words/chunk · ${effectiveWpm * chunkSize} eff. WPM`}</span>
         </div>
         <div className="presets">
-          {[1, 2, 3, 4].map((n) => (
+          {[1, 2, 3, 4, 5].map((n) => (
             <button
               key={n}
               className={chunkSize === n ? "preset active" : "preset"}
@@ -435,7 +493,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </>
       )}
 
-      {!focusMode && <div className="panel">
+      <div className="panel">
         <div className="panel-row"><strong>Display</strong></div>
         <div className="row" style={{ gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
           {FONT_OPTIONS.map((f) => (
@@ -496,7 +554,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         <div className="meta" style={{ marginTop: 12 }}>
           <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±50 WPM · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
         </div>
-      </div>}
+      </div>
+      </aside>
+      </>
+      )}
     </div>
   );
 }

@@ -16,7 +16,13 @@ export function SentenceFlash({
   fontFamily?: string;
   wpm: number;
 }) {
-  const sentences = useMemo(() => splitSentences(text), [text]);
+  const sentences = useMemo(
+    () => splitSentences(text)
+      // Drop any image-marker tokens before display.
+      .map((s) => s.replace(/\s*‹IMG:\d+›\s*/g, " ").replace(/\s+/g, " ").trim())
+      .filter((s) => s.length > 0),
+    [text],
+  );
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [gapVisible, setGapVisible] = useState(true);
