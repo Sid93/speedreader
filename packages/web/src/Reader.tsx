@@ -257,14 +257,19 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
             <div className="header-doc-title" title={doc.title}>{doc.title}</div>
             <div className="meta header-doc-meta">{words.length.toLocaleString()} words · ~{Math.ceil(words.length / wpm)} min</div>
           </div>
-          <button className="header-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">⚙︎</button>
+          <span style={{ width: 44 }} />
         </div>
       )}
       {focusMode && (
         <div className="focus-bar">
+          <button className="focus-btn" onClick={() => setWpm((w) => Math.max(100, w - 25))} title="Slower (↓)">«</button>
+          <span className="focus-label" title="Current WPM (use ↑/↓ to change)">{wpm}</span>
+          <button className="focus-btn" onClick={() => setWpm((w) => Math.min(1000, w + 25))} title="Faster (↑)">»</button>
+          <span className="focus-bar-sep" aria-hidden="true" />
           <button className="focus-btn" onClick={() => setFontSize((s) => Math.max(20, s - 4))} title="Smaller (−)">−</button>
           <span className="focus-label">{fontSize}px</span>
           <button className="focus-btn" onClick={() => setFontSize((s) => Math.min(140, s + 4))} title="Larger (+)">+</button>
+          <span className="focus-bar-sep" aria-hidden="true" />
           <button className="focus-btn" onClick={() => setFocusMode(false)} title="Exit focus (Esc)">✕</button>
         </div>
       )}
@@ -402,10 +407,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         <div className="control-bar">
           <div className="speed-inline">
             <button className="speed-btn" onClick={() => setWpm((w) => Math.max(100, w - 25))} title="Slower">−</button>
-            <button className="wpm-pill" onClick={() => setSettingsOpen(true)} title="Open settings">
+            <span className="wpm-pill" title="Current WPM">
               <span className="wpm-num">{wpm}</span>
               <span className="wpm-unit">WPM</span>
-            </button>
+            </span>
             <button className="speed-btn" onClick={() => setWpm((w) => Math.min(1000, w + 25))} title="Faster">+</button>
           </div>
           <div className="controls">
@@ -421,13 +426,6 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
 
       {!focusMode && (
       <>
-      {settingsOpen && <div className="drawer-backdrop" onClick={() => setSettingsOpen(false)} />}
-      <aside className={settingsOpen ? "drawer open" : "drawer"} aria-hidden={!settingsOpen}>
-      <div className="drawer-header">
-        <strong>Settings</strong>
-        <button className="header-btn" onClick={() => setSettingsOpen(false)} aria-label="Close">✕</button>
-      </div>
-
       {(mode === "rsvp" || mode === "flash") && (
       <div className="panel" style={{ marginTop: 0 }}>
         <div className="panel-row">
@@ -555,7 +553,6 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±50 WPM · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
         </div>
       </div>
-      </aside>
       </>
       )}
     </div>
