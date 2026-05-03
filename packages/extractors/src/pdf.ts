@@ -1,4 +1,5 @@
 import type { ExtractResult, ExtractedImage } from "./index.js";
+import { imageMarker } from "./index.js";
 
 async function loadPdfjs() {
   const pdfjs = await import("pdfjs-dist");
@@ -178,9 +179,7 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
       for (const img of pageImages) {
         const id = nextImgId++;
         images.push({ id, src: img.src, page: i });
-        // Append the marker after the page's text so it surfaces at the
-        // natural break between pages.
-        fullText += ` [[IMG:${id}]] `;
+        fullText += ` ${imageMarker(id)} `;
       }
     } catch {
       /* skip */

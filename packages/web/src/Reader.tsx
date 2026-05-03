@@ -270,7 +270,6 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       {activeImageId !== null && (() => {
         const img = doc.images?.find((x) => x.id === activeImageId);
         if (!img) {
-          // Stale marker — skip past it.
           schedRef.current?.step(1);
           setActiveImageId(null);
           return null;
@@ -283,7 +282,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           <div className="image-overlay" onClick={dismiss} role="button" tabIndex={0}
                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter" || e.key === "Escape") dismiss(); }}>
             <div className="image-card" onClick={(e) => e.stopPropagation()}>
-              <img src={img.src} alt={img.alt ?? ""} />
+              <ImageWithFallback src={img.src} alt={img.alt ?? ""} />
               {img.alt && <div className="image-caption meta">{img.alt}</div>}
               <div className="image-actions">
                 <button className="primary" onClick={dismiss} autoFocus>Continue ▶</button>
@@ -500,4 +499,24 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>}
     </div>
   );
+}
+
+function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div style={{
+        padding: "32px 24px", borderRadius: 10, background: "var(--surface-2)",
+        textAlign: "center", color: "var(--text-muted)",
+      }}>
+        <div style={{ fontSize: "2rem", marginBottom: 8 }}>🖼️</div>
+        <div className="meta" style={{ marginBottom: 6 }}>Image failed to load</div>
+        <a href={src} target="_blank" rel="noreferrer noopener" className="meta"
+           style={{ color: "var(--accent)", wordBreak: "break-all" }}>
+          Open original
+        </a>
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }
