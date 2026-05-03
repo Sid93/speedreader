@@ -39,6 +39,7 @@ export function App() {
       text: r.text,
       source: r.source,
       wordCount,
+      images: r.images,
     });
     setDoc(saved);
   }

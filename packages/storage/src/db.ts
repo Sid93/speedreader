@@ -1,5 +1,12 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
+export interface LibraryDocImage {
+  id: number;
+  src: string;
+  alt?: string;
+  page?: number;
+}
+
 export interface LibraryDoc {
   id: string;
   title: string;
@@ -8,6 +15,8 @@ export interface LibraryDoc {
   source: "pdf" | "text" | "article" | "epub";
   addedAt: number;
   lastReadAt: number;
+  /** Optional embedded images referenced by [[IMG:n]] markers in `text`. */
+  images?: LibraryDocImage[];
 }
 
 export interface Progress {

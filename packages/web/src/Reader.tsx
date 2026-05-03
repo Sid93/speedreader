@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tokenize, getORP, createScheduler, sentenceStartAtOrBefore, skim, splitSentences, type Scheduler } from "@speedreader/engine";
+import { imageIdForToken } from "@speedreader/extractors";
 import {
   saveProgress,
   getProgress,
@@ -50,6 +51,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [chunkLadder, setChunkLadder] = useState(false);
   const [humReminder, setHumReminder] = useState(false);
   const [showHum, setShowHum] = useState(false);
+  const [activeImageId, setActiveImageId] = useState<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const schedRef = useRef<Scheduler | null>(null);
@@ -85,8 +87,15 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
       warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : null,
-      onTick: (i) => {
+      onTick: (i, word) => {
         setIndex(i);
+        const imgId = imageIdForToken(word);
+        if (imgId !== null) {
+          schedRef.current?.pause();
+          setIsPlaying(false);
+          setActiveImageId(imgId);
+          return;
+        }
         if (metronome) playTick();
       },
       onFinish: () => { setIsPlaying(false); setShowQuiz(true); },
@@ -257,6 +266,32 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         />
       )}
       {showHum && <div className="hum-toast">🎵 Hum softly while reading</div>}
+
+      {activeImageId !== null && (() => {
+        const img = doc.images?.find((x) => x.id === activeImageId);
+        if (!img) {
+          // Stale marker — skip past it.
+          schedRef.current?.step(1);
+          setActiveImageId(null);
+          return null;
+        }
+        const dismiss = () => {
+          setActiveImageId(null);
+          schedRef.current?.step(1);
+        };
+        return (
+          <div className="image-overlay" onClick={dismiss} role="button" tabIndex={0}
+               onKeyDown={(e) => { if (e.key === " " || e.key === "Enter" || e.key === "Escape") dismiss(); }}>
+            <div className="image-card" onClick={(e) => e.stopPropagation()}>
+              <img src={img.src} alt={img.alt ?? ""} />
+              {img.alt && <div className="image-caption meta">{img.alt}</div>}
+              <div className="image-actions">
+                <button className="primary" onClick={dismiss} autoFocus>Continue ▶</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {mode === "flash" ? (
         <SentenceFlash text={effectiveText} fontSize={Math.max(18, Math.round(fontSize * 0.42))} fontFamily={fontFamily} wpm={wpm} />

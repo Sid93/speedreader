@@ -1,4 +1,4 @@
-import type { ExtractResult } from "./index.js";
+import type { ExtractResult, ExtractedImage } from "./index.js";
 
 // Uses r.jina.ai — a free article-extraction proxy that strips nav/ads and
 // returns clean markdown. No API key needed, no CORS issues.
@@ -21,8 +21,19 @@ export async function extractArticle(url: string): Promise<ExtractResult> {
   const bodyStart = raw.indexOf("Markdown Content:");
   const body = bodyStart >= 0 ? raw.slice(bodyStart + "Markdown Content:".length) : raw;
 
-  const text = body
-    .replace(/!\[.*?\]\(.*?\)/g, "")
+  // Capture inline images and replace them with [[IMG:n]] markers so the
+  // reader can pause and display them at the right point in the flow.
+  const images: ExtractedImage[] = [];
+  let nextImgId = 0;
+  const withMarkers = body.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt: string, src: string) => {
+    const cleanSrc = src.split(/\s+/)[0]!.trim();
+    if (!/^https?:\/\//i.test(cleanSrc)) return "";
+    const id = nextImgId++;
+    images.push({ id, src: cleanSrc, alt: alt?.trim() || undefined });
+    return ` [[IMG:${id}]] `;
+  });
+
+  const text = withMarkers
     .replace(/\[(.*?)\]\(.*?\)/g, "$1")
     .replace(/`{1,3}[^`]*`{1,3}/g, "")
     .replace(/^#{1,6}\s*/gm, "")
@@ -30,5 +41,11 @@ export async function extractArticle(url: string): Promise<ExtractResult> {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { title, text, source: "article", meta: { url } };
+  return {
+    title,
+    text,
+    source: "article",
+    meta: { url },
+    images: images.length ? images : undefined,
+  };
 }
