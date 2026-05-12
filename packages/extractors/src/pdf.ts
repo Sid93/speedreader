@@ -162,9 +162,10 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
 
-  const images: ExtractedImage[] = [];
+  // Two-pass: capture images into placeholders, filter, then renumber.
+  type Cap = { src: string; page: number; w: number; h: number };
+  const captured: Cap[] = [];
   let fullText = "";
-  let nextImgId = 0;
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
@@ -173,24 +174,67 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
     if (i > 1) fullText += "\n\n";
     fullText += pageText;
 
-    // Best-effort image extraction. Quietly skip if it fails for this page.
     try {
       const pageImages = await extractPageImages(pdfjs, page);
       for (const img of pageImages) {
-        const id = nextImgId++;
-        images.push({ id, src: img.src, page: i });
-        fullText += ` ${imageMarker(id)} `;
+        captured.push({ src: img.src, page: i, w: img.w, h: img.h });
+        fullText += ` ⟦P${captured.length - 1}⟧ `;
       }
     } catch {
       /* skip */
     }
   }
 
+  // Filter: drop dupes (letterhead repeats on every page) and images that
+  // appear on more than 25% of pages (header/footer/logo). Keep the first
+  // occurrence so a single legit chart isn't dropped.
+  const srcCount = new Map<string, number>();
+  for (const c of captured) srcCount.set(c.src, (srcCount.get(c.src) ?? 0) + 1);
+  const repeatThreshold = Math.max(2, Math.ceil(pdf.numPages * 0.25));
+  const seenSrc = new Set<string>();
+  const drop = new Set<number>();
+  for (let i = 0; i < captured.length; i++) {
+    const c = captured[i]!;
+    // Drop tiny / weird aspect ratios (likely page numbers, dividers).
+    if (c.w < 100 || c.h < 60) { drop.add(i); continue; }
+    const aspect = c.w / c.h;
+    if (aspect > 12 || aspect < 1 / 12) { drop.add(i); continue; }
+    // Drop if this src appears on too many pages (chrome).
+    if ((srcCount.get(c.src) ?? 0) >= repeatThreshold) { drop.add(i); continue; }
+    // Drop dupes (keep first).
+    if (seenSrc.has(c.src)) { drop.add(i); continue; }
+    seenSrc.add(c.src);
+  }
+
+  // Drop runs of 2+ adjacent placeholders (image-heavy footers/headers).
+  fullText = fullText.replace(/⟦P\d+⟧(?:\s*⟦P\d+⟧)+/g, (run) => {
+    // Mark every placeholder in the run as dropped, keep zero or one.
+    const idxs = [...run.matchAll(/⟦P(\d+)⟧/g)].map((m) => Number(m[1]));
+    for (const idx of idxs) drop.add(idx);
+    return " ";
+  });
+
+  // Drop the placeholders flagged.
+  for (const idx of drop) fullText = fullText.replace(`⟦P${idx}⟧`, " ");
+
+  // Convert surviving placeholders to real markers + build images list.
+  const images: ExtractedImage[] = [];
+  fullText = fullText.replace(/⟦P(\d+)⟧/g, (_m, idxStr: string) => {
+    const c = captured[Number(idxStr)]!;
+    const id = images.length;
+    images.push({ id, src: c.src, page: c.page });
+    return ` ${imageMarker(id)} `;
+  });
+
   return {
     title: file.name.replace(/\.pdf$/i, ""),
     text: fullText.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
     source: "pdf",
-    meta: { pages: pdf.numPages, imageCount: images.length },
+    meta: {
+      pages: pdf.numPages,
+      imageCount: images.length,
+      droppedImages: captured.length - images.length,
+    },
     images: images.length ? images : undefined,
   };
 }
