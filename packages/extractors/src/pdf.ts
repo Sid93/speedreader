@@ -53,6 +53,31 @@ function pageItemsToText(items: any[]): string {
   return out;
 }
 
+/** Render a whole PDF page to a JPEG thumbnail data URL.
+ *  Used as a fallback for chart-heavy pages where images are vector paths
+ *  not exposed as XObjects. */
+async function renderPageThumb(page: any, maxWidth: number): Promise<{ src: string; w: number; h: number } | null> {
+  try {
+    const baseViewport = page.getViewport({ scale: 1 });
+    const scale = Math.min(maxWidth / baseViewport.width, 2);
+    const viewport = page.getViewport({ scale });
+    const w = Math.floor(viewport.width);
+    const h = Math.floor(viewport.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    // Fill white so transparent backgrounds in PDFs come out readable.
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, w, h);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return { src: canvas.toDataURL("image/jpeg", 0.78), w, h };
+  } catch {
+    return null;
+  }
+}
+
 /** Read an XObject image from a page and return a JPEG data URL, or null. */
 async function imgObjToDataUrl(page: any, objId: string): Promise<{ src: string; w: number; h: number } | null> {
   // pdf.js stores rendered image objects on the page's `objs` registry. Some
@@ -163,14 +188,18 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
 
   // Two-pass: capture images into placeholders, filter, then renumber.
-  type Cap = { src: string; page: number; w: number; h: number };
+  type Cap = { src: string; page: number; w: number; h: number; isPageSnapshot?: boolean };
   const captured: Cap[] = [];
+  const pageTextLength: number[] = [];
+  const pageRefs: { page: any; rendered: any }[] = []; // keep so we can snapshot later
   let fullText = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const pageText = pageItemsToText(content.items as any[]);
+    pageTextLength.push(pageText.length);
+    pageRefs.push({ page, rendered: null });
     if (i > 1) fullText += "\n\n";
     fullText += pageText;
 
@@ -182,6 +211,54 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
       }
     } catch {
       /* skip */
+    }
+  }
+
+  // ── Detect chart-heavy pages and snapshot them ────────────────────────
+  // PDF vector charts (e.g. matplotlib SVGs) are drawn with paths, not as
+  // images, so the image extractor misses them. Heuristic: compare each
+  // page's text length to the document average. Pages with substantially
+  // less text are likely chart/diagram pages — render them as a thumbnail
+  // so the reader sees something instead of skipping over silent pages.
+  const totalText = pageTextLength.reduce((a, b) => a + b, 0);
+  const avgText = totalText / Math.max(1, pdf.numPages);
+  // Only bother if the doc has multiple pages of substantive text.
+  if (pdf.numPages >= 2 && avgText > 200) {
+    for (let i = 0; i < pdf.numPages; i++) {
+      const len = pageTextLength[i]!;
+      // Page is "chart-heavy" if it has < 30% of the average text, OR if it
+      // has under 60 chars (basically wordless).
+      const isChartHeavy = len < Math.min(avgText * 0.3, 200) || len < 60;
+      if (!isChartHeavy) continue;
+      // Skip if we already extracted real images from this page.
+      const hasRealImage = captured.some((c) => c.page === i + 1);
+      if (hasRealImage) continue;
+      // Render this page as a thumbnail and inject as an image right at
+      // the page boundary in the text stream.
+      try {
+        const snap = await renderPageThumb(pageRefs[i]!.page, 760);
+        if (!snap) continue;
+        captured.push({ src: snap.src, page: i + 1, w: snap.w, h: snap.h, isPageSnapshot: true });
+        const idx = captured.length - 1;
+        // Insert marker right after this page's text, before the next page.
+        const pageBreaks: number[] = [];
+        let cursor = 0;
+        const marker = "\n\n";
+        while (true) {
+          const at = fullText.indexOf(marker, cursor);
+          if (at < 0) break;
+          pageBreaks.push(at);
+          cursor = at + marker.length;
+        }
+        if (i < pageBreaks.length) {
+          const insertAt = pageBreaks[i]!;
+          fullText = fullText.slice(0, insertAt) + ` ⟦P${idx}⟧ ` + fullText.slice(insertAt);
+        } else {
+          fullText += ` ⟦P${idx}⟧ `;
+        }
+      } catch {
+        /* skip */
+      }
     }
   }
 

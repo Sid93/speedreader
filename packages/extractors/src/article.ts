@@ -5,13 +5,25 @@ import { imageMarker } from "./index.js";
 // silently drop rather than pause on. Better to miss a real image now and
 // then than to make every page a slideshow of menus and pixels.
 const JUNK_ALT_RE = /^(menu|search|close|arrow|sign\s*in|subscribe|login|logo|icon|burger|hamburger|spotify|youtube|twitter|x\s*\/\s*twitter|linkedin|apple\s*podcasts?|rss|email|share|tag|profile|avatar|footer|header)/i;
-const JUNK_URL_RE = /(^|\/)(icons?|logos?|assets|svg|sprites?|pixel|favicon|trans_?1x1|spacer|blank)(\/|[._-])|(\.svg($|\?))|(1x1\.gif)|(google-analytics|googletagmanager|doubleclick|facebook\.com\/tr)/i;
-// Images that are obviously huge content (charts, diagrams, screenshots)
-// usually have certain markers — keep them even if URL looks generic.
+const JUNK_URL_RE = /(^|\/)(icons?|logos?|assets|sprites?|pixel|favicon|trans_?1x1|spacer|blank)(\/|[._-])|(1x1\.gif)|(google-analytics|googletagmanager|doubleclick|facebook\.com\/tr)/i;
+// Things that strongly suggest "this is content (a chart/figure/diagram)"
+// even if the URL or alt has otherwise generic shape.
+const CHART_HINT_RE = /(chart|graph|figure|diagram|plot|fig[_-]?\d|viz|visuali[sz]ation|infographic)/i;
+
 function isJunkImage(src: string, alt: string): boolean {
   const a = (alt ?? "").trim();
+  // Chart-like signals override the junk filters so SVG charts pass.
+  if (CHART_HINT_RE.test(src) || (a && CHART_HINT_RE.test(a))) return false;
   if (a && JUNK_ALT_RE.test(a)) return true;
   if (JUNK_URL_RE.test(src)) return true;
+  // SVG: drop only if it looks like an icon (in /icons/, /assets/, /static/,
+  // or filename has hyphenated single short word like "search.svg"). Anything
+  // longer or with chart hints is allowed.
+  if (/\.svg($|\?)/i.test(src)) {
+    if (/\/(icons?|assets|static|sprites?|svg)\//i.test(src)) return true;
+    const name = (src.match(/\/([^\/?#]+)\.svg/i)?.[1] ?? "");
+    if (name.length <= 12 && !/[0-9_-].{4}/.test(name)) return true;
+  }
   // Substack/other CDNs often include dimensions in URL: skip if explicit tiny.
   const dim = src.match(/[?&]w=(\d+)/) || src.match(/[?&]width=(\d+)/);
   if (dim && Number(dim[1]) < 80) return true;
