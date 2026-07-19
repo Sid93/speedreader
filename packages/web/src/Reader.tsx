@@ -60,9 +60,11 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const indexRef = useRef(0);
   const wpmRef = useRef(300);
   const hydratedRef = useRef(false);
+  const chunkSizeRef = useRef(1);
   indexRef.current = index;
   wpmRef.current = wpm;
   hydratedRef.current = hydrated;
+  chunkSizeRef.current = chunkSize;
 
   // Hydrate initial position from saved progress
   useEffect(() => {
@@ -87,10 +89,16 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       sentencePauseMs: naturalPauses ? 250 : 0,
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
-      warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : null,
-      onTick: (i, word) => {
+      warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : undefined,
+      onTick: (i) => {
         setIndex(i);
-        const imgId = imageIdForToken(word);
+        // Scan the whole displayed chunk, not just the first word — with
+        // bunching on, a marker mid-chunk would otherwise be skipped.
+        let imgId: number | null = null;
+        for (const w of words.slice(i, i + Math.max(1, chunkSizeRef.current))) {
+          imgId = imageIdForToken(w);
+          if (imgId !== null) break;
+        }
         if (imgId !== null) {
           schedRef.current?.pause();
           setIsPlaying(false);
@@ -217,7 +225,10 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
     }
   }
 
-  const chunk = words.slice(index, index + chunkSize);
+  // Never show raw ‹IMG:n› marker tokens in the display — swap them for a
+  // picture glyph (the overlay shows the actual image when playback hits one).
+  const displayWord = (w: string) => (imageIdForToken(w) !== null ? "🖼️" : w);
+  const chunk = words.slice(index, index + chunkSize).map(displayWord);
   const centerIdx = Math.floor((chunk.length - 1) / 2);
   const centerParts = chunk[centerIdx] ? getORP(chunk[centerIdx]!) : { before: "", orp: "", after: "" };
   const effectiveWpm = wpm; // wpm in scheduler is true words-per-minute
@@ -306,7 +317,20 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         }
         const dismiss = () => {
           setActiveImageId(null);
-          schedRef.current?.step(1);
+          const s = schedRef.current;
+          if (!s) return;
+          // At the very end there is nothing to advance to — just stop, or the
+          // clamped step would re-emit the same marker and reopen the overlay.
+          if (indexRef.current + Math.max(1, chunkSizeRef.current) >= words.length) {
+            setIsPlaying(false);
+            return;
+          }
+          s.step(1);
+          // "Continue" means continue reading: resume playback. If the next
+          // chunk holds another image, onTick pauses again immediately, so
+          // reflect the scheduler's actual state rather than assuming.
+          s.play();
+          setIsPlaying(s.getState().isPlaying);
         };
         return (
           <div className="image-overlay" onClick={dismiss} role="button" tabIndex={0}
@@ -560,8 +584,14 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
 }
 
 function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
+  // Some CDNs block hotlinking; on error retry once through the weserv.nl
+  // image proxy before giving up.
+  const [stage, setStage] = useState<"direct" | "proxy" | "failed">("direct");
+  useEffect(() => setStage("direct"), [src]);
+  const shownSrc = stage === "proxy"
+    ? `https://images.weserv.nl/?url=${encodeURIComponent(src)}`
+    : src;
+  if (stage === "failed") {
     return (
       <div style={{
         padding: "32px 24px", borderRadius: 10, background: "var(--surface-2)",
@@ -576,5 +606,12 @@ function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
       </div>
     );
   }
-  return <img src={src} alt={alt} referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+  return (
+    <img
+      src={shownSrc}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      onError={() => setStage((s) => (s === "direct" ? "proxy" : "failed"))}
+    />
+  );
 }

@@ -27,6 +27,10 @@ function isJunkImage(src: string, alt: string): boolean {
   // Substack/other CDNs often include dimensions in URL: skip if explicit tiny.
   const dim = src.match(/[?&]w=(\d+)/) || src.match(/[?&]width=(\d+)/);
   if (dim && Number(dim[1]) < 80) return true;
+  // Substack CDN puts transform dims in the path (…/fetch/w_40,h_40,c_fill/…):
+  // tiny widths there are avatars/badges, not content.
+  const pathDim = src.match(/[/,]w_(\d+)[,/]/);
+  if (pathDim && Number(pathDim[1]) < 80) return true;
   return false;
 }
 
@@ -82,8 +86,10 @@ export async function extractArticle(url: string): Promise<ExtractResult> {
   //    Placeholders use ⟦⟧ (not markdown brackets) so this is safe.
   body = body.replace(/\[([^\[\]]*)\]\([^)\s]+(?:\s+"[^"]*")?\)/g, "$1");
 
-  // 5. Now drop runs of 2+ adjacent placeholders — those are nav strips.
-  body = body.replace(/⟦I\d+⟧(?:\s*⟦I\d+⟧)+/g, " ");
+  // 5. Now drop runs of 2+ placeholders adjacent ON THE SAME LINE — those are
+  //    nav strips (rows of icons). Images in adjacent *paragraphs* are almost
+  //    always real content (common on Substack), so newlines break a run.
+  body = body.replace(/⟦I\d+⟧(?:[ \t]*⟦I\d+⟧)+/g, " ");
 
   // 6. Convert surviving placeholders to real markers + build the images list.
   const images: ExtractedImage[] = [];

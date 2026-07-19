@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tokenize, getORP, createScheduler, type Scheduler } from "@speedreader/engine";
-import { extractArticle } from "@speedreader/extractors";
+import { extractArticle, imageIdForToken } from "@speedreader/extractors";
 import { saveDoc, saveProgress, getProgress, recordWords, type LibraryDoc } from "@speedreader/storage";
 import { bionicSplit, sentenceStartAtOrBefore, buildQuiz, type QuizQuestion } from "@speedreader/engine";
 
@@ -63,8 +63,40 @@ function Quiz({ text, onClose }: { text: string; onClose: () => void }) {
   );
 }
 
+function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
+  // Some CDNs block hotlinking; on error retry once through the weserv.nl
+  // image proxy before giving up.
+  const [stage, setStage] = useState<"direct" | "proxy" | "failed">("direct");
+  useEffect(() => setStage("direct"), [src]);
+  const shownSrc = stage === "proxy"
+    ? `https://images.weserv.nl/?url=${encodeURIComponent(src)}`
+    : src;
+  if (stage === "failed") {
+    return (
+      <div style={{ padding: "32px 24px", textAlign: "center" }} className="meta">
+        <div style={{ fontSize: "2rem", marginBottom: 8 }}>🖼️</div>
+        <div style={{ marginBottom: 6 }}>Image failed to load</div>
+        <a href={src} target="_blank" rel="noreferrer noopener" style={{ wordBreak: "break-all" }}>
+          Open original
+        </a>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={shownSrc}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      onError={() => setStage((s) => (s === "direct" ? "proxy" : "failed"))}
+    />
+  );
+}
+
 function BionicView({ text, fontSize }: { text: string; fontSize: number }) {
-  const paragraphs = text.split(/\n\s*\n/);
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\s*‹IMG:\d+›\s*/g, " ").trim())
+    .filter(Boolean);
   return (
     <div className="bionic" style={{ fontSize }}>
       {paragraphs.map((p, pi) => (
@@ -106,6 +138,7 @@ export function ReaderApp() {
         let title = staged.title;
         let text = "";
         let source: LibraryDoc["source"] = "text";
+        let images: LibraryDoc["images"];
         if (staged.mode === "text") {
           text = staged.text;
           source = "text";
@@ -114,9 +147,10 @@ export function ReaderApp() {
           title = r.title || staged.title;
           text = r.text;
           source = "article";
+          images = r.images;
         }
         const wordCount = tokenize(text).length;
-        const saved = await saveDoc({ title, text, source, wordCount });
+        const saved = await saveDoc({ title, text, source, wordCount, images });
         setDoc(saved);
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
@@ -147,15 +181,18 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [warmup, setWarmup] = useState(false);
   const [metronome, setMetronome] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [activeImageId, setActiveImageId] = useState<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const schedRef = useRef<Scheduler | null>(null);
   const indexRef = useRef(0);
   const wpmRef = useRef(300);
   const hydratedRef = useRef(false);
+  const chunkSizeRef = useRef(1);
   const lastStatIndexRef = useRef(0);
   indexRef.current = index;
   wpmRef.current = wpm;
   hydratedRef.current = hydrated;
+  chunkSizeRef.current = chunkSize;
 
   useEffect(() => {
     getProgress(doc.id).then((p) => {
@@ -178,9 +215,22 @@ function Player({ doc }: { doc: LibraryDoc }) {
       sentencePauseMs: naturalPauses ? 250 : 0,
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
-      warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : null,
+      warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : undefined,
       onTick: (i) => {
         setIndex(i);
+        // Scan the whole displayed chunk for an image marker — pause and
+        // show the picture, matching the web reader's behaviour.
+        let imgId: number | null = null;
+        for (const w of words.slice(i, i + Math.max(1, chunkSizeRef.current))) {
+          imgId = imageIdForToken(w);
+          if (imgId !== null) break;
+        }
+        if (imgId !== null) {
+          schedRef.current?.pause();
+          setIsPlaying(false);
+          setActiveImageId(imgId);
+          return;
+        }
         if (metronome) {
           try {
             if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -268,7 +318,10 @@ function Player({ doc }: { doc: LibraryDoc }) {
     setIsPlaying(s.getState().isPlaying);
   }
 
-  const chunk = words.slice(index, index + chunkSize);
+  // Never show raw ‹IMG:n› marker tokens in the display — swap them for a
+  // picture glyph (the overlay shows the actual image when playback hits one).
+  const displayWord = (w: string) => (imageIdForToken(w) !== null ? "🖼️" : w);
+  const chunk = words.slice(index, index + chunkSize).map(displayWord);
   const centerIdx = Math.floor((chunk.length - 1) / 2);
   const centerParts = chunk[centerIdx] ? getORP(chunk[centerIdx]!) : { before: "", orp: "", after: "" };
   const progress = words.length > 1 ? (index / (words.length - 1)) * 100 : 0;
@@ -292,6 +345,44 @@ function Player({ doc }: { doc: LibraryDoc }) {
 
       {showQuiz && <Quiz text={doc.text} onClose={() => setShowQuiz(false)} />}
 
+      {activeImageId !== null && (() => {
+        const img = doc.images?.find((x) => x.id === activeImageId);
+        if (!img) {
+          schedRef.current?.step(1);
+          setActiveImageId(null);
+          return null;
+        }
+        const dismiss = () => {
+          setActiveImageId(null);
+          const s = schedRef.current;
+          if (!s) return;
+          // At the very end there is nothing to advance to — just stop, or the
+          // clamped step would re-emit the same marker and reopen the overlay.
+          if (indexRef.current + Math.max(1, chunkSizeRef.current) >= words.length) {
+            setIsPlaying(false);
+            return;
+          }
+          s.step(1);
+          // "Continue" means continue reading: resume playback. If the next
+          // chunk holds another image, onTick pauses again immediately, so
+          // reflect the scheduler's actual state rather than assuming.
+          s.play();
+          setIsPlaying(s.getState().isPlaying);
+        };
+        return (
+          <div className="image-overlay" onClick={dismiss} role="button" tabIndex={0}
+               onKeyDown={(e) => { if (e.key === " " || e.key === "Enter" || e.key === "Escape") dismiss(); }}>
+            <div className="image-card" onClick={(e) => e.stopPropagation()}>
+              <ImageWithFallback src={img.src} alt={img.alt ?? ""} />
+              {img.alt && <div className="meta" style={{ textAlign: "center" }}>{img.alt}</div>}
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button className="primary" onClick={dismiss} autoFocus>Continue ▶</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {mode === "bionic" ? (
         <BionicView text={doc.text} fontSize={Math.max(14, Math.round(fontSize * 0.36))} />
       ) : (
@@ -313,9 +404,9 @@ function Player({ doc }: { doc: LibraryDoc }) {
         </div>
         {showContext && (
           <div className="context meta">
-            <span>{index > 0 ? words[index - 1] : "—"}</span>
+            <span>{index > 0 ? displayWord(words[index - 1]!) : "—"}</span>
             <span style={{ opacity: 0.4 }}>···</span>
-            <span>{index < words.length - 1 ? words[index + 1] : "—"}</span>
+            <span>{index < words.length - 1 ? displayWord(words[index + 1]!) : "—"}</span>
           </div>
         )}
         <div style={{ width: "100%" }}>

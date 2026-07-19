@@ -83,3 +83,38 @@ button.primary.play { width: 52px; height: 52px; border-radius: 50%; font-size: 
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .preset { padding: 5px 11px; font-size: 0.82rem; background: var(--surface2); border-radius: 8px; }
 .preset.active { border-color: var(--accent); color: var(--accent); }
+
+/* ── Image pause overlay ─────────────────────────────────────────────── */
+.image-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 18, 0.78);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+  cursor: pointer;
+}
+.image-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  max-width: min(900px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: default;
+}
+.image-card img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+}
