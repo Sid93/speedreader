@@ -312,6 +312,10 @@ function Player({ doc }: { doc: LibraryDoc }) {
         case "ArrowUp": e.preventDefault(); setWpm((w) => Math.min(1000, w + 50)); break;
         case "ArrowDown": e.preventDefault(); setWpm((w) => Math.max(100, w - 50)); break;
         case "r": case "R": schedRef.current?.seek(0); setIsPlaying(false); break;
+        case "Escape": if (focusMode) { e.preventDefault(); setFocusMode(false); } break;
+        case "f": case "F": e.preventDefault(); setFocusMode((v) => !v); break;
+        case "+": case "=": e.preventDefault(); setFontSize((s) => Math.min(140, s + 4)); break;
+        case "-": case "_": e.preventDefault(); setFontSize((s) => Math.max(20, s - 4)); break;
       }
     };
     window.addEventListener("keydown", onKey);
@@ -335,7 +339,8 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const minLeft = Math.max(0, Math.ceil((words.length - index - 1) / wpm));
 
   return (
-    <div className="wrap">
+    <div className={focusMode ? "wrap focus-mode" : "wrap"}>
+      {!focusMode && (
       <header>
         <h1>Speed <span>Reader</span></h1>
         <div className="meta" style={{ textAlign: "right" }}>
@@ -343,12 +348,29 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <div>{words.length.toLocaleString()} words · ~{Math.ceil(words.length / wpm)} min @ {wpm} WPM</div>
         </div>
       </header>
+      )}
+      {focusMode && (
+        <div className="focus-bar">
+          <button className="focus-btn" onClick={() => setWpm((w) => Math.max(100, w - 25))} title="Slower (↓)">«</button>
+          <span className="focus-label" title="Current WPM (use ↑/↓ to change)">{wpm}</span>
+          <button className="focus-btn" onClick={() => setWpm((w) => Math.min(1000, w + 25))} title="Faster (↑)">»</button>
+          <span className="focus-bar-sep" aria-hidden="true" />
+          <button className="focus-btn" onClick={() => setFontSize((s) => Math.max(20, s - 4))} title="Smaller (−)">−</button>
+          <span className="focus-label">{fontSize}px</span>
+          <button className="focus-btn" onClick={() => setFontSize((s) => Math.min(140, s + 4))} title="Larger (+)">+</button>
+          <span className="focus-bar-sep" aria-hidden="true" />
+          <button className="focus-btn" onClick={() => setFocusMode(false)} title="Exit focus (Esc)">✕</button>
+        </div>
+      )}
 
+      {!focusMode && (
       <div className="mode-switch">
         <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
         <button className="mode" onClick={() => setShowQuiz(true)}>🧠 Quiz</button>
+        <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
       </div>
+      )}
 
       {showQuiz && <Quiz text={doc.text} onClose={() => setShowQuiz(false)} />}
 
@@ -409,13 +431,14 @@ function Player({ doc }: { doc: LibraryDoc }) {
             ))}
           </div>
         </div>
-        {showContext && (
+        {showContext && !focusMode && (
           <div className="context meta">
             <span>{index > 0 ? displayWord(words[index - 1]!) : "—"}</span>
             <span style={{ opacity: 0.4 }}>···</span>
             <span>{index < words.length - 1 ? displayWord(words[index + 1]!) : "—"}</span>
           </div>
         )}
+        {!focusMode && (
         <div style={{ width: "100%" }}>
           <div className="row" style={{ justifyContent: "space-between" }}>
             <span className="meta">Word {index + 1} of {words.length.toLocaleString()}</span>
@@ -430,6 +453,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
             onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
           />
         </div>
+        )}
         <div className="controls">
           <button onClick={() => { schedRef.current?.seek(0); setIsPlaying(false); }}>⏮</button>
           <button onClick={() => schedRef.current?.step(-1)}>⏪</button>
@@ -440,7 +464,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
       </div>
       )}
 
-      {mode === "rsvp" && (
+      {mode === "rsvp" && !focusMode && (
       <>
       <div className="panel">
         <div className="panel-row">
@@ -472,6 +496,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
       </>
       )}
 
+      {!focusMode && (
       <div className="panel">
         <div className="panel-row"><strong>Display</strong></div>
         <div className="row" style={{ gap: 24, flexWrap: "wrap" }}>
@@ -507,6 +532,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
           </label>
         </div>
       </div>
+      )}
     </div>
   );
 }

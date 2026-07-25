@@ -118,3 +118,52 @@ button.primary.play { width: 52px; height: 52px; border-radius: 50%; font-size: 
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.4);
 }
+
+/* ── Focus (distraction-free) mode ───────────────────────────────────── */
+.focus-mode { max-width: 100%; padding: 0; }
+.focus-mode .reader {
+  min-height: 100vh;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  justify-content: center;
+}
+.focus-mode .controls {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+}
+.focus-mode .controls:hover { opacity: 1; }
+
+.focus-bar {
+  position: fixed; top: 16px; right: 16px; z-index: 10;
+  display: flex; gap: 4px; align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 4px;
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+.focus-bar:hover { opacity: 1; }
+.focus-btn {
+  width: 32px; height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.focus-btn:hover { background: var(--surface2); }
+.focus-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  min-width: 34px;
+  text-align: center;
+}
+.focus-bar-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
