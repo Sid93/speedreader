@@ -167,3 +167,26 @@ button.primary.play { width: 52px; height: 52px; border-radius: 50%; font-size: 
   text-align: center;
 }
 .focus-bar-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+
+/* ── Reader v2: context ribbon + receding chrome ─────────────────────── */
+.context-ribbon {
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  min-height: 1.4em;
+  max-width: 88%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+header, .mode-switch, .controls {
+  transition: opacity 0.25s ease;
+}
+.wrap.playing header,
+.wrap.playing .mode-switch,
+.wrap.playing .controls { opacity: 0.3; }
+.wrap.playing header:hover,
+.wrap.playing .mode-switch:hover,
+.wrap.playing .controls:hover { opacity: 1; }

@@ -272,6 +272,38 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
     secondsLeft < 600 ? `${Math.floor(secondsLeft/60)}m ${String(secondsLeft%60).padStart(2,"0")}s left` :
     `${Math.ceil(secondsLeft/60)}m left`;
 
+  // Section headings, detected heuristically: a short standalone paragraph
+  // (≤8 words) with no terminal punctuation is almost always a heading in
+  // extracted article text. Gives the scrubber tick marks and a "where am I"
+  // label without any storage changes.
+  const sections = useMemo<{ title: string; at: number; pct: number }[]>(() => {
+    const secs: { title: string; at: number; pct: number }[] = [];
+    let wordIdx = 0;
+    for (const para of effectiveText.split(/\n{2,}/)) {
+      const ws = para.trim().split(/\s+/).filter(Boolean);
+      if (ws.length === 0) continue;
+      const lastWord = ws[ws.length - 1]!;
+      const isHeading =
+        ws.length <= 8 &&
+        !/[.!?,;:]$/.test(lastWord) &&
+        /[A-Za-z]/.test(para) &&
+        !ws.some((w) => /‹IMG:\d+›/.test(w));
+      if (isHeading && wordIdx > 0) {
+        secs.push({ title: ws.join(" "), at: wordIdx, pct: (wordIdx / Math.max(1, words.length - 1)) * 100 });
+      }
+      wordIdx += ws.length;
+    }
+    return secs;
+  }, [effectiveText, words.length]);
+  const currentSection = useMemo(() => {
+    let cur: string | null = null;
+    for (const s of sections) {
+      if (s.at <= index) cur = s.title;
+      else break;
+    }
+    return cur;
+  }, [sections, index]);
+
   // Paragraph boundary positions, expressed as percentages of total length.
   const paragraphMarks = useMemo<number[]>(() => {
     const marks: number[] = [];
@@ -290,7 +322,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   }, [effectiveText, words.length]);
 
   return (
-    <div className={focusMode ? "app focus-mode" : "app"}>
+    <div className={["app", focusMode && "focus-mode", isPlaying && mode === "rsvp" && "playing"].filter(Boolean).join(" ")}>
       {!focusMode && (
         <div className="reader-header">
           <button className="header-btn" onClick={onBack} aria-label="Back to library">←</button>
@@ -322,6 +354,8 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
         <button className="mode" onClick={() => setShowQuiz(true)} title="Test your recall">🧠 Quiz</button>
         <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
+        <button className={settingsOpen ? "mode active" : "mode"} onClick={() => setSettingsOpen((o) => !o)}
+          title="Settings">⚙ {wpm} wpm · {chunkSize === 1 ? "1 word" : `${chunkSize}×`}</button>
       </div>
       )}
 
@@ -398,6 +432,11 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         </>
       ) : (
       <div className="reader">
+        {showContext && !focusMode && (
+          <div className="context-ribbon" aria-hidden="true">
+            {words.slice(Math.max(0, index - Math.max(2, chunkSize)), index).map(displayWord).join(" ") || " "}
+          </div>
+        )}
         <div className="word anchored" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)), fontFamily }}>
           <div className="half left">
             {chunk.slice(0, centerIdx).map((w, i) => (
@@ -414,24 +453,18 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           </div>
         </div>
 
-        {showContext && !focusMode && (() => {
-          const isMarker = (w?: string) => !!w && /‹IMG:\d+›/.test(w);
-          let prevWord = "—";
-          for (let i = index - 1; i >= 0; i--) if (!isMarker(words[i])) { prevWord = words[i]!; break; }
-          let nextWord = "—";
-          for (let i = index + 1; i < words.length; i++) if (!isMarker(words[i])) { nextWord = words[i]!; break; }
-          return (
-            <div className="context meta">
-              <span>{prevWord}</span>
-              <span style={{ opacity: 0.4 }}>···</span>
-              <span>{nextWord}</span>
-            </div>
-          );
-        })()}
+        {showContext && !focusMode && (
+          <div className="context-ribbon" aria-hidden="true">
+            {words.slice(index + chunkLen, index + chunkLen + Math.max(2, chunkSize)).map(displayWord).join(" ") || " "}
+          </div>
+        )}
 
         {!focusMode && <div style={{ width: "100%" }}>
           <div className="row" style={{ justifyContent: "space-between" }}>
-            <span className="meta">Word {index + 1} of {words.length.toLocaleString()}</span>
+            <span className="meta scrub-label">
+              Word {index + 1} of {words.length.toLocaleString()}
+              {currentSection && <span className="section-label"> · {currentSection}</span>}
+            </span>
             <span className="meta">{timeLeftLabel}</span>
           </div>
           <div className="scrubber-wrap">
@@ -453,6 +486,13 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
             <div className="paragraph-marks" aria-hidden="true">
               {paragraphMarks.map((p, i) => (
                 <span key={i} className="paragraph-tick" style={{ left: `${p}%` }} />
+              ))}
+              {sections.map((s, i) => (
+                <span key={`s${i}`} className="section-tick" style={{ left: `${s.pct}%` }} title={s.title} />
+              ))}
+              {upcomingImages.map((m) => (
+                <span key={`img${m.id}`} className="image-dot"
+                  style={{ left: `${(m.at / Math.max(1, words.length - 1)) * 100}%` }} />
               ))}
             </div>
           </div>
@@ -478,7 +518,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>
       )}
 
-      {!focusMode && (
+      {!focusMode && settingsOpen && (
       <>
       {(mode === "rsvp" || mode === "flash") && (
       <div className="panel" style={{ marginTop: 0 }}>

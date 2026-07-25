@@ -185,6 +185,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [adaptivePacing, setAdaptivePacing] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [warmup, setWarmup] = useState(false);
   const [metronome, setMetronome] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -369,7 +370,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const minLeft = Math.max(0, Math.ceil((words.length - index - 1) / wpm));
 
   return (
-    <div className={focusMode ? "wrap focus-mode" : "wrap"}>
+    <div className={["wrap", focusMode && "focus-mode", isPlaying && mode === "rsvp" && "playing"].filter(Boolean).join(" ")}>
       {!focusMode && (
       <header>
         <h1>Speed <span>Reader</span></h1>
@@ -399,6 +400,8 @@ function Player({ doc }: { doc: LibraryDoc }) {
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
         <button className="mode" onClick={() => setShowQuiz(true)}>🧠 Quiz</button>
         <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
+        <button className={settingsOpen ? "mode active" : "mode"} onClick={() => setSettingsOpen((o) => !o)}
+          title="Settings">⚙ {wpm} wpm · {chunkSize === 1 ? "1 word" : `${chunkSize}×`}</button>
       </div>
       )}
 
@@ -446,6 +449,11 @@ function Player({ doc }: { doc: LibraryDoc }) {
         <BionicView text={doc.text} fontSize={Math.max(14, Math.round(fontSize * 0.36))} />
       ) : (
       <div className="reader">
+        {showContext && !focusMode && (
+          <div className="context-ribbon" aria-hidden="true">
+            {words.slice(Math.max(0, index - Math.max(2, chunkSize)), index).map(displayWord).join(" ") || " "}
+          </div>
+        )}
         <div className="word anchored" style={{ fontSize: chunkSize === 1 ? fontSize : Math.round(fontSize / (1 + (chunkSize - 1) * 0.9)) }}>
           <div className="half left">
             {chunk.slice(0, centerIdx).map((w, i) => (
@@ -462,10 +470,8 @@ function Player({ doc }: { doc: LibraryDoc }) {
           </div>
         </div>
         {showContext && !focusMode && (
-          <div className="context meta">
-            <span>{index > 0 ? displayWord(words[index - 1]!) : "—"}</span>
-            <span style={{ opacity: 0.4 }}>···</span>
-            <span>{index < words.length - 1 ? displayWord(words[index + 1]!) : "—"}</span>
+          <div className="context-ribbon" aria-hidden="true">
+            {words.slice(index + chunkLen, index + chunkLen + Math.max(2, chunkSize)).map(displayWord).join(" ") || " "}
           </div>
         )}
         {!focusMode && (
@@ -494,7 +500,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
       </div>
       )}
 
-      {mode === "rsvp" && !focusMode && (
+      {mode === "rsvp" && !focusMode && settingsOpen && (
       <>
       <div className="panel">
         <div className="panel-row">
