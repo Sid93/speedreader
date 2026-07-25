@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { tokenize, isPunctuationOnly, getORP, createScheduler, bionicSplit, sentenceStartAtOrBefore, endsSentence, buildQuiz } from "../index.js";
+import { tokenize, isPunctuationOnly, getORP, createScheduler, bionicSplit, sentenceStartAtOrBefore, endsSentence, buildQuiz, chunkLenAt } from "../index.js";
 
 describe("tokenize", () => {
   it("splits on whitespace and drops empties", () => {
@@ -170,5 +170,41 @@ describe("scheduler", () => {
     sched.step(1);
     expect(sched.getState().index).toBe(1);
     expect(sched.getState().isPlaying).toBe(false);
+  });
+});
+
+describe("chunkLenAt (phrase-aware bunching)", () => {
+  const w = (s: string) => s.split(" ");
+
+  it("returns 1 for single-word mode and out-of-range starts", () => {
+    expect(chunkLenAt(w("a b c"), 0, 1)).toBe(1);
+    expect(chunkLenAt(w("a b c"), 99, 5)).toBe(1);
+  });
+
+  it("caps at maxSize when no boundaries intervene", () => {
+    expect(chunkLenAt(w("one two three four five six"), 0, 4)).toBe(4);
+  });
+
+  it("never straddles a sentence end", () => {
+    // "quick end." is words[2]; a chunk starting at 0 must stop there.
+    expect(chunkLenAt(w("The quick end. New sentence here"), 0, 5)).toBe(3);
+    // And the next chunk starts cleanly at the new sentence.
+    expect(chunkLenAt(w("The quick end. New sentence here"), 3, 5)).toBe(3);
+  });
+
+  it("breaks after a clause boundary once at least half the target size", () => {
+    // comma at words[2] ("milk,") — with maxSize 4 (minBreak 2) break at len 3.
+    expect(chunkLenAt(w("bread and milk, then eggs and ham"), 0, 4)).toBe(3);
+    // with maxSize 5 (minBreak 3) the comma at words[1] is too early to break.
+    expect(chunkLenAt(w("yes, we should keep going now"), 0, 5)).toBe(5);
+  });
+
+  it("gives image markers a chunk of their own", () => {
+    expect(chunkLenAt(["alpha", "beta", "‹IMG:0›", "gamma"], 0, 5)).toBe(2);
+    expect(chunkLenAt(["‹IMG:0›", "alpha", "beta"], 0, 5)).toBe(1);
+  });
+
+  it("stops at the end of the word list", () => {
+    expect(chunkLenAt(w("only two"), 0, 5)).toBe(2);
   });
 });

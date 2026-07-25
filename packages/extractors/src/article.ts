@@ -45,8 +45,15 @@ export async function extractArticle(url: string): Promise<ExtractResult> {
   });
   if (!res.ok) throw new Error(`Article fetch failed: ${res.status} ${res.statusText}`);
 
-  const raw = await res.text();
+  return parseJinaMarkdown(await res.text(), url);
+}
 
+/**
+ * Pure transform from a raw r.jina.ai response to an ExtractResult.
+ * Split out from extractArticle so it can be tested against fixtures
+ * without any network access.
+ */
+export function parseJinaMarkdown(raw: string, url: string): ExtractResult {
   const titleMatch = raw.match(/^Title:\s*(.+)$/m);
   const title = titleMatch?.[1]?.trim() ?? url;
 

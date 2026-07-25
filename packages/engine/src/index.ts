@@ -1,4 +1,4 @@
-export { tokenize, isPunctuationOnly, endsSentence, sentenceStartAtOrBefore } from "./tokenize.js";
+export { tokenize, isPunctuationOnly, endsSentence, sentenceStartAtOrBefore, chunkLenAt } from "./tokenize.js";
 export { getORP, type OrpParts } from "./orp.js";
 export { bionicSplit, type BionicPart } from "./bionic.js";
 export { buildQuiz, type QuizQuestion, type QuizOptions } from "./quiz.js";

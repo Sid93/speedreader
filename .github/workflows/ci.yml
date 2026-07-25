@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile=false
+
+      - name: Typecheck web app
+        run: npx tsc --noEmit -p packages/web
+
+      - name: Typecheck extension
+        run: npx tsc --noEmit -p packages/extension
+
+      - name: Unit tests (engine + extractors)
+        run: pnpm -r test

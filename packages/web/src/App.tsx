@@ -102,7 +102,7 @@ export function App() {
               </div>
             </button>
           )}
-          <Home onLoaded={handleExtracted} />
+          <Home onLoaded={handleExtracted} onQueued={() => setTab("library")} />
         </>
       )}
       {tab === "library" && <Library onOpen={setDoc} />}

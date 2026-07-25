@@ -1,14 +1,52 @@
 import { useState } from "react";
 import { extractPdf, extractText, extractArticle, extractEpub, type ExtractResult } from "@speedreader/extractors";
+import { saveDoc } from "@speedreader/storage";
+import { tokenize } from "@speedreader/engine";
 
 type Tab = "pdf" | "epub" | "text" | "url";
 
-export function Home({ onLoaded }: { onLoaded: (r: ExtractResult) => void }) {
+type QueueItem = { url: string; state: "pending" | "fetching" | "done" | "error"; title?: string; msg?: string };
+
+export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => void; onQueued?: () => void }) {
   const [tab, setTab] = useState<Tab>("pdf");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [queueText, setQueueText] = useState("");
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
+  const [queueRunning, setQueueRunning] = useState(false);
+
+  async function runQueue() {
+    const urls = [...new Set(
+      queueText.split(/\s+/).map((s) => s.trim()).filter((u) => /^https?:\/\//i.test(u)),
+    )];
+    if (urls.length === 0 || queueRunning) return;
+    setQueueRunning(true);
+    setQueueItems(urls.map((u) => ({ url: u, state: "pending" })));
+    const mark = (i: number, patch: Partial<QueueItem>) =>
+      setQueueItems((items) => items.map((q, j) => (j === i ? { ...q, ...patch } : q)));
+    for (let i = 0; i < urls.length; i++) {
+      mark(i, { state: "fetching" });
+      try {
+        const r = await extractArticle(urls[i]!);
+        if (!r.text.trim()) throw new Error("No text extracted");
+        await saveDoc({
+          title: r.title,
+          text: r.text,
+          source: r.source,
+          wordCount: tokenize(r.text).length,
+          images: r.images,
+        });
+        mark(i, { state: "done", title: r.title });
+      } catch (e) {
+        mark(i, { state: "error", msg: e instanceof Error ? e.message : String(e) });
+      }
+      // Space out requests — r.jina.ai rate-limits anonymous callers.
+      if (i < urls.length - 1) await new Promise((res) => setTimeout(res, 1500));
+    }
+    setQueueRunning(false);
+  }
 
   async function run(fn: () => Promise<ExtractResult>) {
     setErr(null);
@@ -106,6 +144,44 @@ export function Home({ onLoaded }: { onLoaded: (r: ExtractResult) => void }) {
             <p className="meta" style={{ marginTop: 10 }}>
               Article text is extracted via r.jina.ai (no signup).
             </p>
+
+            <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <strong>📥 Queue several articles</strong>
+              <textarea
+                placeholder={"Paste article URLs, one per line...\nhttps://example.com/post-1\nhttps://example.com/post-2"}
+                value={queueText}
+                onChange={(e) => setQueueText(e.target.value)}
+                rows={4}
+                style={{ marginTop: 8 }}
+              />
+              <button
+                className="primary"
+                disabled={queueRunning || !queueText.trim()}
+                onClick={runQueue}
+                style={{ marginTop: 10 }}
+              >
+                {queueRunning ? "⏳ Fetching..." : "Add all to queue →"}
+              </button>
+              {queueItems.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  {queueItems.map((q) => (
+                    <div key={q.url} className="meta" style={{ marginTop: 4 }}>
+                      {q.state === "pending" && "◻️"}
+                      {q.state === "fetching" && "⏳"}
+                      {q.state === "done" && "✅"}
+                      {q.state === "error" && "❌"}{" "}
+                      {q.state === "done" ? q.title : q.url}
+                      {q.state === "error" && ` — ${q.msg}`}
+                    </div>
+                  ))}
+                  {!queueRunning && queueItems.some((q) => q.state === "done") && (
+                    <button onClick={() => onQueued?.()} style={{ marginTop: 10 }}>
+                      View queue in Library →
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

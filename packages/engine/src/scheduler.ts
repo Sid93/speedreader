@@ -16,6 +16,13 @@ export interface SchedulerOptions {
    * `warmupDurationMs`. Gives the eye a chance to settle.
    */
   warmup?: { startFactor: number; durationMs: number };
+  /**
+   * Optional phrase-aware chunker: given a start index and the current
+   * chunk-size setting, return how many words the chunk at that position
+   * actually spans (1..maxSize). Must be pure/deterministic so the display
+   * can call the same function and agree. Defaults to fixed-size chunks.
+   */
+  chunkAt?: (index: number, maxSize: number) => number;
   onTick: (index: number, word: string) => void;
   onFinish?: () => void;
 }
@@ -99,17 +106,27 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     return i;
   }
 
+  /** Actual span of the chunk starting at `from` (phrase-aware if provided). */
+  function chunkLen(from: number): number {
+    if (chunkSize <= 1) return 1;
+    const len = opts.chunkAt ? opts.chunkAt(from, chunkSize) : chunkSize;
+    return Math.min(Math.max(1, Math.floor(len)), chunkSize);
+  }
+
   function schedule() {
     if (!isPlaying) return;
-    // Base delay per chunk; adjust by the current word being displayed.
-    const baseDelay = (60000 * chunkSize) / wpm;
+    // Base delay proportional to the words actually shown; pause cues come
+    // from the LAST word of the chunk (that's where the . or , sits).
+    const len = chunkLen(index);
+    const baseDelay = (60000 * len) / wpm;
     const current = words[index] ?? "";
+    const lastInChunk = words[Math.min(index + len - 1, words.length - 1)] ?? "";
     const mult = chunkSize === 1 ? adaptiveMultiplier(current) : 1;
-    const extra = chunkSize === 1 ? extraPauseFor(current) : extraPauseFor(current);
+    const extra = extraPauseFor(lastInChunk);
     const warm = warmupFactor(); // <1 during warmup → longer delay
     const delay = Math.max(1, Math.round((baseDelay * mult) / warm + extra));
     timer = setTimeout(() => {
-      const next = nextPlayableIndex(index + chunkSize, 1);
+      const next = nextPlayableIndex(index + len, 1);
       if (next >= words.length) {
         isPlaying = false;
         timer = null;
@@ -149,7 +166,16 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     step(delta: number) {
       this.pause();
       const dir: 1 | -1 = delta >= 0 ? 1 : -1;
-      const jump = (delta >= 0 ? 1 : -1) * Math.max(1, Math.abs(delta)) * chunkSize;
+      // Forward steps advance whole (phrase-aware) chunks; backward steps
+      // fall back to fixed-size jumps since chunk starts aren't known in
+      // reverse without rescanning.
+      let jump: number;
+      if (dir === 1) {
+        jump = 0;
+        for (let n = Math.max(1, Math.abs(delta)); n > 0; n--) jump += chunkLen(index + jump);
+      } else {
+        jump = -Math.max(1, Math.abs(delta)) * chunkSize;
+      }
       let target = index + jump;
       target = Math.max(0, Math.min(words.length - 1, target));
       target = nextPlayableIndex(target, dir);

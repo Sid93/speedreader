@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { tokenize, getORP, createScheduler, type Scheduler } from "@speedreader/engine";
+import { tokenize, getORP, createScheduler, chunkLenAt, type Scheduler } from "@speedreader/engine";
 import { extractArticle, imageIdForToken } from "@speedreader/extractors";
 import { saveDoc, saveProgress, getProgress, recordWords, type LibraryDoc } from "@speedreader/storage";
 import { bionicSplit, sentenceStartAtOrBefore, buildQuiz, type QuizQuestion } from "@speedreader/engine";
@@ -176,7 +176,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [index, setIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [wpm, setWpm] = useState(300);
-  const [fontSize, setFontSize] = useState(56);
+  const [fontSize, setFontSize] = useState(90);
   const [skipPunct, setSkipPunct] = useState(true);
   const [showContext, setShowContext] = useState(true);
   const [chunkSize, setChunkSize] = useState(1);
@@ -212,6 +212,31 @@ function Player({ doc }: { doc: LibraryDoc }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.id]);
 
+  // Preload the next couple of images so the pause overlay opens instantly
+  // instead of showing a blank while the CDN responds.
+  const upcomingImages = useMemo(() => {
+    const list: { at: number; id: number }[] = [];
+    words.forEach((w, i) => {
+      const id = imageIdForToken(w);
+      if (id !== null) list.push({ at: i, id });
+    });
+    return list;
+  }, [words]);
+  const preloadedRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const imgs = doc.images;
+    if (!imgs?.length) return;
+    for (const m of upcomingImages.filter((m) => m.at >= index).slice(0, 2)) {
+      if (preloadedRef.current.has(m.id)) continue;
+      const src = imgs.find((x) => x.id === m.id)?.src;
+      if (!src) continue;
+      preloadedRef.current.add(m.id);
+      const im = new Image();
+      im.referrerPolicy = "no-referrer";
+      im.src = src;
+    }
+  }, [index, upcomingImages, doc.images]);
+
   useEffect(() => {
     if (!hydrated) return;
     const s = createScheduler({
@@ -223,12 +248,14 @@ function Player({ doc }: { doc: LibraryDoc }) {
       commaPauseMs: naturalPauses ? 80 : 0,
       adaptivePacing,
       warmup: warmup ? { startFactor: 0.7, durationMs: 30000 } : undefined,
+      chunkAt: (i, size) => chunkLenAt(words, i, size),
       onTick: (i) => {
         setIndex(i);
         // Scan the whole displayed chunk for an image marker — pause and
         // show the picture, matching the web reader's behaviour.
+        const len = chunkSizeRef.current > 1 ? chunkLenAt(words, i, chunkSizeRef.current) : 1;
         let imgId: number | null = null;
-        for (const w of words.slice(i, i + Math.max(1, chunkSizeRef.current))) {
+        for (const w of words.slice(i, i + len)) {
           imgId = imageIdForToken(w);
           if (imgId !== null) break;
         }
@@ -332,7 +359,10 @@ function Player({ doc }: { doc: LibraryDoc }) {
   // Never show raw ‹IMG:n› marker tokens in the display — swap them for a
   // picture glyph (the overlay shows the actual image when playback hits one).
   const displayWord = (w: string) => (imageIdForToken(w) !== null ? "🖼️" : w);
-  const chunk = words.slice(index, index + chunkSize).map(displayWord);
+  // Phrase-aware chunk: same pure function the scheduler uses, so the words
+  // on screen are exactly the words being timed.
+  const chunkLen = chunkSize > 1 ? chunkLenAt(words, index, chunkSize) : 1;
+  const chunk = words.slice(index, index + chunkLen).map(displayWord);
   const centerIdx = Math.floor((chunk.length - 1) / 2);
   const centerParts = chunk[centerIdx] ? getORP(chunk[centerIdx]!) : { before: "", orp: "", after: "" };
   const progress = words.length > 1 ? (index / (words.length - 1)) * 100 : 0;

@@ -12,6 +12,45 @@ export function endsSentence(word: string): boolean {
   return /[.!?]$/.test(trimmed);
 }
 
+// Mirrors the marker format from @speedreader/extractors (kept inline so the
+// engine stays dependency-free): image markers always travel as their own
+// chunk so the reader can pause exactly on them.
+const IMG_MARKER_RE = /‹IMG:\d+›/;
+
+/** Does this word end a clause (, ; :), ignoring trailing quotes/brackets? */
+function endsClause(word: string): boolean {
+  const trimmed = word.replace(/[\s"'"')\]}]+$/, "");
+  return /[,;:]$/.test(trimmed);
+}
+
+/**
+ * Phrase-aware chunk length starting at `start`, capped at `maxSize`.
+ *
+ * Instead of blindly grouping N words, a chunk:
+ *  - never straddles a sentence end (. ! ?) — the sentence break always
+ *    coincides with a chunk break;
+ *  - prefers to break after a clause boundary (, ; :) once the chunk has
+ *    reached at least half the target size;
+ *  - never absorbs an image marker (markers get a chunk of their own).
+ *
+ * Deterministic and pure, so the scheduler and the display can both call it
+ * with the same inputs and agree on the chunk.
+ */
+export function chunkLenAt(words: string[], start: number, maxSize: number): number {
+  if (maxSize <= 1 || start >= words.length) return 1;
+  if (IMG_MARKER_RE.test(words[start] ?? "")) return 1;
+  const minBreak = Math.ceil(maxSize / 2);
+  let len = 1;
+  while (len < maxSize && start + len < words.length) {
+    const last = words[start + len - 1]!;
+    if (endsSentence(last)) break;
+    if (len >= minBreak && endsClause(last)) break;
+    if (IMG_MARKER_RE.test(words[start + len] ?? "")) break;
+    len++;
+  }
+  return len;
+}
+
 /**
  * Walk backwards from `index` to find the first word right after a
  * sentence-ending one. If none found within `lookback`, returns `index`.
