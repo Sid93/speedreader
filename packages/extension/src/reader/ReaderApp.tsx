@@ -179,7 +179,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [fontSize, setFontSize] = useState(90);
   const [skipPunct, setSkipPunct] = useState(true);
   const [showContext, setShowContext] = useState(true);
-  const [chunkSize, setChunkSize] = useState(1);
+  const [chunkSize, setChunkSize] = useState(4);
   const [mode, setMode] = useState<Mode>("rsvp");
   const [naturalPauses, setNaturalPauses] = useState(true);
   const [adaptivePacing, setAdaptivePacing] = useState(false);
