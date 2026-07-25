@@ -118,7 +118,8 @@ const STAGED_KEY = "sr.staged";
 
 type Staged =
   | { mode: "text"; title: string; text: string; at: number }
-  | { mode: "url"; title: string; url: string; at: number };
+  | { mode: "url"; title: string; url: string; at: number }
+  | { mode: "dom"; title: string; text: string; images?: LibraryDoc["images"]; url: string; at: number };
 
 export function ReaderApp() {
   const [doc, setDoc] = useState<LibraryDoc | null>(null);
@@ -142,6 +143,12 @@ export function ReaderApp() {
         if (staged.mode === "text") {
           text = staged.text;
           source = "text";
+        } else if (staged.mode === "dom") {
+          // Extracted from the live page DOM — sees exactly what the logged-in
+          // user sees, so paywalled posts (Substack etc.) work too.
+          text = staged.text;
+          source = "article";
+          images = staged.images;
         } else {
           const r = await extractArticle(staged.url);
           title = r.title || staged.title;
