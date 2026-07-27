@@ -8,6 +8,7 @@ import {
   type LibraryDoc,
 } from "@speedreader/storage";
 import { BionicView } from "./BionicView.js";
+import { useCameraAssist } from "./useCameraAssist.js";
 import { Quiz } from "./Quiz.js";
 import { SentenceFlash } from "./SentenceFlash.js";
 
@@ -52,6 +53,12 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [chunkLadder, setChunkLadder] = useState(false);
   const [humReminder, setHumReminder] = useState(false);
   const [showHum, setShowHum] = useState(false);
+  const [cameraAssist, setCameraAssist] = useState(() => localStorage.getItem("sr.cameraAssist") === "1");
+  useEffect(() => { localStorage.setItem("sr.cameraAssist", cameraAssist ? "1" : "0"); }, [cameraAssist]);
+  const [camToast, setCamToast] = useState<string | null>(null);
+  const pausedByCameraRef = useRef(false);
+  const lastBlinkWarnRef = useRef(0);
+  const camActiveSinceRef = useRef(0);
   const [activeImageId, setActiveImageId] = useState<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -65,6 +72,47 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   wpmRef.current = wpm;
   hydratedRef.current = hydrated;
   chunkSizeRef.current = chunkSize;
+
+  // Opt-in webcam assist (attention auto-pause + blink reminders). The hook
+  // is inert (no camera, no model download) until the user enables it.
+  const cam = useCameraAssist(cameraAssist && mode === "rsvp");
+  useEffect(() => {
+    if (cam.status !== "active") {
+      camActiveSinceRef.current = 0;
+      pausedByCameraRef.current = false;
+      return;
+    }
+    if (!camActiveSinceRef.current) camActiveSinceRef.current = Date.now();
+    if (!cam.present && schedRef.current?.getState().isPlaying) {
+      // Give a 1s grace period before pausing — glances are fine.
+      const t = setTimeout(() => {
+        const s = schedRef.current;
+        if (!s || !s.getState().isPlaying) return;
+        s.pause();
+        setIsPlaying(false);
+        pausedByCameraRef.current = true;
+        setCamToast("⏸ Paused — you looked away");
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+    if (cam.present && pausedByCameraRef.current) {
+      pausedByCameraRef.current = false;
+      schedRef.current?.play();
+      setIsPlaying(schedRef.current?.getState().isPlaying ?? false);
+      setCamToast(null);
+    }
+  }, [cam.present, cam.status]);
+  useEffect(() => {
+    if (cam.status !== "active" || cam.blinkRatePerMin === null || !isPlaying) return;
+    const activeFor = camActiveSinceRef.current ? Date.now() - camActiveSinceRef.current : 0;
+    if (activeFor < 90_000) return;
+    if (cam.blinkRatePerMin >= 6) return;
+    if (Date.now() - lastBlinkWarnRef.current < 180_000) return;
+    lastBlinkWarnRef.current = Date.now();
+    setCamToast("👁 Blink break — your blink rate is low");
+    const t = setTimeout(() => setCamToast((m) => (m?.startsWith("👁") ? null : m)), 4500);
+    return () => clearTimeout(t);
+  }, [cam.blinkRatePerMin, cam.status, isPlaying]);
 
   // Preload the next couple of images so the pause overlay opens instantly
   // instead of showing a blank while the CDN responds.
@@ -356,6 +404,15 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
         <button className={settingsOpen ? "mode active" : "mode"} onClick={() => setSettingsOpen((o) => !o)}
           title="Settings">⚙ {wpm} wpm · {chunkSize === 1 ? "1 word" : `${chunkSize}×`}</button>
+        {cameraAssist && (
+          <span className="meta cam-status" title={
+            cam.status === "active" ? "Camera assist active — on-device only"
+            : cam.status === "starting" ? "Camera starting…"
+            : cam.status === "error" ? `Camera error: ${cam.error}` : "Camera assist"
+          }>
+            👁{cam.status === "active" ? "" : cam.status === "starting" ? " …" : " ⚠"}
+          </span>
+        )}
       </div>
       )}
 
@@ -371,6 +428,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         />
       )}
       {showHum && <div className="hum-toast">🎵 Hum softly while reading</div>}
+      {camToast && <div className="hum-toast">{camToast}</div>}
 
       {activeImageId !== null && (() => {
         const img = doc.images?.find((x) => x.id === activeImageId);
@@ -642,7 +700,20 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
             <input type="checkbox" checked={humReminder} onChange={(e) => setHumReminder(e.target.checked)} />
             <span className="meta">Hum reminder</span>
           </label>
+          <label className="row" title="Uses the webcam to auto-pause when you look away and remind you to blink. Everything runs on this device — no video is recorded or sent anywhere.">
+            <input type="checkbox" checked={cameraAssist} onChange={(e) => setCameraAssist(e.target.checked)} />
+            <span className="meta">👁 Camera assist</span>
+          </label>
         </div>
+        {cameraAssist && (
+          <div className="meta" style={{ marginTop: 8 }}>
+            {cam.status === "error"
+              ? <span style={{ color: "var(--red)" }}>Camera unavailable: {cam.error}</span>
+              : cam.status === "starting"
+              ? "Starting camera & loading the on-device model…"
+              : "Camera assist is on: auto-pause when you look away, blink-rate reminders. Frames are analyzed locally in your browser and never stored or uploaded."}
+          </div>
+        )}
         <div className="meta" style={{ marginTop: 12 }}>
           <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±50 WPM · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
         </div>

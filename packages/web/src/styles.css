@@ -1173,3 +1173,15 @@ kbd {
 .app.playing .reader-header:hover,
 .app.playing .mode-switch:hover,
 .app.playing .control-bar:hover { opacity: 1; }
+
+/* ── Camera assist status pill ───────────────────────────────────────── */
+.cam-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  cursor: default;
+}
