@@ -31,14 +31,14 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const words = useMemo(() => tokenize(effectiveText), [effectiveText]);
   const [index, setIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [wpm, setWpm] = useState(300);
-  const [fontSize, setFontSize] = useState(90);
+  const [wpm, setWpm] = useState(350);
+  const [fontSize, setFontSize] = useState(95);
   const [skipPunct, setSkipPunct] = useState(true);
   const [showContext, setShowContext] = useState(true);
   const [chunkSize, setChunkSize] = useState(4);
   const [mode, setMode] = useState<Mode>("rsvp");
   const [naturalPauses, setNaturalPauses] = useState(true);
-  const [adaptivePacing, setAdaptivePacing] = useState(false);
+  const [adaptivePacing, setAdaptivePacing] = useState(true);
   const [bionicIntensity, setBionicIntensity] = useState(0.45);
   const [fontFamily, setFontFamily] = useState<string>(() =>
     localStorage.getItem("sr.fontFamily") ?? "Georgia, serif",
@@ -47,7 +47,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [showQuiz, setShowQuiz] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [warmup, setWarmup] = useState(false);
+  const [warmup, setWarmup] = useState(true);
   const [metronome, setMetronome] = useState(false);
   const [forwardOnly, setForwardOnly] = useState(false);
   const [chunkLadder, setChunkLadder] = useState(false);
