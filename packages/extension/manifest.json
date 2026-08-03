@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Speed Reader",
-  "version": "0.17.1",
+  "version": "0.18.0",
   "description": "Right-click any page or selection to speed-read it with RSVP.",
   "action": {
     "default_title": "Speed Reader",

@@ -25,7 +25,12 @@ chrome.runtime.onInstalled.addListener(() => {
  * Must be fully self-contained: no imports, no closed-over variables.
  * Emits the same ‹IMG:n› markers the extractors package uses.
  */
-function extractFromDom(): { title: string; text: string; images: { id: number; src: string; alt?: string }[] } {
+function extractFromDom(): {
+  title: string;
+  text: string;
+  images: { id: number; src: string; alt?: string }[];
+  links: { text: string; href: string }[];
+} {
   const SKIP_SELECTOR = [
     "script", "style", "noscript", "nav", "header", "footer", "aside", "form",
     "button", "svg", "iframe", "audio", "video", "textarea", "select",
@@ -37,6 +42,10 @@ function extractFromDom(): { title: string; text: string; images: { id: number; 
 
   const images: { id: number; src: string; alt?: string }[] = [];
   const seenSrc = new Set<string>();
+  const links: { text: string; href: string }[] = [];
+  const seenHref = new Set<string>();
+  const pageBase = location.href.split("#")[0];
+  const JUNK_LINK_RE = /substackcdn\.com\/image|\/(sharer|intent\/tweet|share\?)|action=share|\/subscribe(\?|$)|\/comments(\?|$)/i;
   const out: string[] = [];
   const BLOCK_RE = /^(P|DIV|H1|H2|H3|H4|H5|H6|LI|BLOCKQUOTE|PRE|FIGURE|FIGCAPTION|TR|UL|OL|TABLE|SECTION)$/;
 
@@ -51,6 +60,23 @@ function extractFromDom(): { title: string; text: string; images: { id: number; 
       try {
         if (e.matches(SKIP_SELECTOR)) continue;
       } catch { /* exotic elements can throw on matches() */ }
+      if (e.tagName === "A") {
+        // Record the hyperlink (readers can't click mid-RSVP), then keep
+        // walking so the anchor text still lands in the body.
+        const href = (e as HTMLAnchorElement).href || "";
+        const label = ((e as HTMLElement).innerText || "").replace(/\s+/g, " ").trim();
+        if (
+          /^https?:\/\//i.test(href) &&
+          label &&
+          href.split("#")[0] !== pageBase &&
+          !JUNK_LINK_RE.test(href) &&
+          !seenHref.has(href) &&
+          links.length < 100
+        ) {
+          seenHref.add(href);
+          links.push({ text: label.slice(0, 160), href });
+        }
+      }
       if (e.tagName === "IMG") {
         const img = e as HTMLImageElement;
         const src = img.currentSrc || img.src || "";
@@ -98,7 +124,7 @@ function extractFromDom(): { title: string; text: string; images: { id: number; 
     document.title ||
     location.href;
 
-  return { title, text, images };
+  return { title, text, images, links };
 }
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -130,6 +156,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           title: r.title || tab.title || tab.url,
           text: r.text,
           images: r.images.length ? r.images : undefined,
+          links: r.links.length ? r.links : undefined,
           url: tab.url,
           at: Date.now(),
         };

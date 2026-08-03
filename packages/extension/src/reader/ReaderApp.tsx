@@ -119,7 +119,7 @@ const STAGED_KEY = "sr.staged";
 type Staged =
   | { mode: "text"; title: string; text: string; at: number }
   | { mode: "url"; title: string; url: string; at: number }
-  | { mode: "dom"; title: string; text: string; images?: LibraryDoc["images"]; url: string; at: number };
+  | { mode: "dom"; title: string; text: string; images?: LibraryDoc["images"]; links?: LibraryDoc["links"]; url: string; at: number };
 
 export function ReaderApp() {
   const [doc, setDoc] = useState<LibraryDoc | null>(null);
@@ -140,6 +140,7 @@ export function ReaderApp() {
         let text = "";
         let source: LibraryDoc["source"] = "text";
         let images: LibraryDoc["images"];
+        let links: LibraryDoc["links"];
         if (staged.mode === "text") {
           text = staged.text;
           source = "text";
@@ -149,15 +150,17 @@ export function ReaderApp() {
           text = staged.text;
           source = "article";
           images = staged.images;
+          links = staged.links;
         } else {
           const r = await extractArticle(staged.url);
           title = r.title || staged.title;
           text = r.text;
           source = "article";
           images = r.images;
+          links = r.links;
         }
         const wordCount = tokenize(text).length;
-        const saved = await saveDoc({ title, text, source, wordCount, images });
+        const saved = await saveDoc({ title, text, source, wordCount, images, links });
         setDoc(saved);
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
@@ -498,6 +501,23 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <button onClick={() => schedRef.current?.seek(words.length - 1)}>⏭</button>
         </div>
       </div>
+      )}
+
+      {!focusMode && (doc.links?.length ?? 0) > 0 && (
+        <div className="panel link-panel">
+          <div className="panel-row">
+            <strong>🔗 Links in this article</strong>
+            <span className="meta">{doc.links!.length} — the reader skips these; catch up here</span>
+          </div>
+          <div className="link-list">
+            {doc.links!.map((l, i) => (
+              <a key={i} className="link-row" href={l.href} target="_blank" rel="noreferrer noopener">
+                <span className="link-text">{l.text}</span>
+                <span className="link-href meta">{l.href}</span>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
 
       {mode === "rsvp" && !focusMode && settingsOpen && (

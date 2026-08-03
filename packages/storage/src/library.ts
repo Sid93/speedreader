@@ -27,6 +27,7 @@ export async function saveDoc(
     addedAt: existing?.addedAt ?? now,
     lastReadAt: now,
     images: input.images,
+    links: input.links,
   };
   await db.put("library", doc);
   return doc;

@@ -13,6 +13,13 @@ export interface ExtractedImage {
   page?: number;
 }
 
+export interface ExtractedLink {
+  /** Link text as it appeared in the article (trimmed, capped). */
+  text: string;
+  /** Absolute http(s) URL. */
+  href: string;
+}
+
 export interface ExtractResult {
   title: string;
   /**
@@ -26,6 +33,8 @@ export interface ExtractResult {
   source: "pdf" | "text" | "article" | "epub";
   meta?: Record<string, unknown>;
   images?: ExtractedImage[];
+  /** Hyperlinks found in the article body, in document order, deduped. */
+  links?: ExtractedLink[];
 }
 
 /** Regex used by readers to detect image marker tokens. Lenient: matches

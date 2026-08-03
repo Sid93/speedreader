@@ -106,3 +106,31 @@ describe("parseJinaMarkdown — junk filtering", () => {
     expect(markers(r.text)).toEqual(["‹IMG:0›"]);
   });
 });
+
+describe("parseJinaMarkdown — link capture", () => {
+  it("captures body hyperlinks with their text, in order, deduped", () => {
+    const r = parseJinaMarkdown(jina(
+      "See [the report](https://example.com/report) and [Twitter thread](https://twitter.com/a/status/1).\n\nAlso [the report](https://example.com/report) again.",
+    ), URL);
+    expect(r.links).toEqual([
+      { text: "the report", href: "https://example.com/report" },
+      { text: "Twitter thread", href: "https://twitter.com/a/status/1" },
+    ]);
+    // Link text stays in the body even though the URL moved to the list.
+    expect(r.text).toContain("See the report and Twitter thread.");
+  });
+
+  it("skips self-anchors, share widgets, and image-wrapper links", () => {
+    const r = parseJinaMarkdown(jina([
+      `[jump to footnote](${URL}#footnote-1)`,
+      "",
+      "[![Image 1](https://cdn.example.com/pic.jpeg)](https://substackcdn.com/image/fetch/w_1456/pic.jpeg)",
+      "",
+      "[Share](https://twitter.com/intent/tweet?url=x)",
+      "",
+      "[real link](https://example.com/essay) closes the piece.",
+    ].join("\n")), URL);
+    expect(r.links).toEqual([{ text: "real link", href: "https://example.com/essay" }]);
+    expect(r.images).toHaveLength(1);
+  });
+});

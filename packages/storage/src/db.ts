@@ -7,6 +7,11 @@ export interface LibraryDocImage {
   page?: number;
 }
 
+export interface LibraryDocLink {
+  text: string;
+  href: string;
+}
+
 export interface LibraryDoc {
   id: string;
   title: string;
@@ -17,6 +22,8 @@ export interface LibraryDoc {
   lastReadAt: number;
   /** Optional embedded images referenced by [[IMG:n]] markers in `text`. */
   images?: LibraryDocImage[];
+  /** Hyperlinks captured from the article body, in document order. */
+  links?: LibraryDocLink[];
 }
 
 export interface Progress {

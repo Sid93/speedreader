@@ -190,3 +190,34 @@ header, .mode-switch, .controls {
 .wrap.playing header:hover,
 .wrap.playing .mode-switch:hover,
 .wrap.playing .controls:hover { opacity: 1; }
+
+/* ── Links-in-article panel ──────────────────────────────────────────── */
+.link-list {
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.link-row {
+  display: block;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  border-radius: 6px;
+}
+.link-row:last-child { border-bottom: none; }
+.link-row:hover { background: var(--surface2); }
+.link-text {
+  display: block;
+  color: var(--accent2);
+  font-size: 0.92rem;
+}
+.link-href {
+  display: block;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.75;
+}
+.wrap.playing .link-panel { opacity: 0.3; transition: opacity 0.25s ease; }
+.wrap.playing .link-panel:hover { opacity: 1; }

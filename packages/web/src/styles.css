@@ -1185,3 +1185,34 @@ kbd {
   font-size: 0.8rem;
   cursor: default;
 }
+
+/* ── Links-in-article panel ──────────────────────────────────────────── */
+.link-list {
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.link-row {
+  display: block;
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  border-radius: 6px;
+}
+.link-row:last-child { border-bottom: none; }
+.link-row:hover { background: var(--surface-2); }
+.link-text {
+  display: block;
+  color: var(--accent-2);
+  font-size: 0.92rem;
+}
+.link-href {
+  display: block;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.75;
+}
+.app.playing .link-panel { opacity: 0.3; transition: opacity 0.25s ease; }
+.app.playing .link-panel:hover { opacity: 1; }

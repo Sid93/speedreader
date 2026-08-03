@@ -576,6 +576,23 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
       </div>
       )}
 
+      {!focusMode && (doc.links?.length ?? 0) > 0 && (
+        <div className="panel link-panel">
+          <div className="panel-row">
+            <strong>🔗 Links in this article</strong>
+            <span className="meta">{doc.links!.length} — the reader skips these; catch up here</span>
+          </div>
+          <div className="link-list">
+            {doc.links!.map((l, i) => (
+              <a key={i} className="link-row" href={l.href} target="_blank" rel="noreferrer noopener">
+                <span className="link-text">{l.text}</span>
+                <span className="link-href meta">{l.href}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!focusMode && settingsOpen && (
       <>
       {(mode === "rsvp" || mode === "flash") && (

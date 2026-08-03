@@ -1,4 +1,4 @@
-import type { ExtractResult, ExtractedImage } from "./index.js";
+import type { ExtractResult, ExtractedImage, ExtractedLink } from "./index.js";
 import { imageMarker } from "./index.js";
 
 // Common patterns for navigation/UI/tracking images that the reader should
@@ -53,7 +53,7 @@ export async function extractArticle(url: string): Promise<ExtractResult> {
  * Split out from extractArticle so it can be tested against fixtures
  * without any network access.
  */
-export function parseJinaMarkdown(raw: string, url: string): ExtractResult {
+export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
   const titleMatch = raw.match(/^Title:\s*(.+)$/m);
   const title = titleMatch?.[1]?.trim() ?? url;
 
@@ -89,9 +89,30 @@ export function parseJinaMarkdown(raw: string, url: string): ExtractResult {
       seenSrc.add(src);
     }
   }
-  // 4. Strip link wrappers FIRST so a linked image becomes a bare placeholder.
-  //    Placeholders use ⟦⟧ (not markdown brackets) so this is safe.
-  body = body.replace(/\[([^\[\]]*)\]\([^)\s]+(?:\s+"[^"]*")?\)/g, "$1");
+  // 4. Strip link wrappers FIRST so a linked image becomes a bare placeholder
+  //    (⟦⟧ placeholders contain no markdown brackets, so this is safe) — but
+  //    capture the hrefs on the way out so the reader can list every link the
+  //    article contained. Self-links (footnotes/anchors), share widgets, and
+  //    image-CDN wrappers are noise, not references.
+  const links: ExtractedLink[] = [];
+  const seenHref = new Set<string>();
+  const pageBase = url.split("#")[0];
+  const JUNK_LINK_RE = /substackcdn\.com\/image|\/(sharer|intent\/tweet|share\?)|action=share|\/subscribe(\?|$)|\/comments(\?|$)/i;
+  body = body.replace(/\[([^\[\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_m, label: string, href: string) => {
+    const text = (label ?? "").replace(/⟦I\d+⟧/g, "").replace(/\s+/g, " ").trim();
+    if (
+      /^https?:\/\//i.test(href) &&
+      text &&
+      href.split("#")[0] !== pageBase &&
+      !JUNK_LINK_RE.test(href) &&
+      !seenHref.has(href) &&
+      links.length < 100
+    ) {
+      seenHref.add(href);
+      links.push({ text: text.slice(0, 160), href });
+    }
+    return label;
+  });
 
   // 5. Now drop runs of 2+ placeholders adjacent ON THE SAME LINE — those are
   //    nav strips (rows of icons). Images in adjacent *paragraphs* are almost
@@ -135,5 +156,6 @@ export function parseJinaMarkdown(raw: string, url: string): ExtractResult {
     source: "article",
     meta: { url, imageCount: images.length },
     images: images.length ? images : undefined,
+    links: links.length ? links : undefined,
   };
 }
