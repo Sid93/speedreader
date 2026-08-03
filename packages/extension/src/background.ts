@@ -38,6 +38,8 @@ function extractFromDom(): {
     ".subscription-widget-wrap", ".subscribe-widget", ".post-ufi", ".post-footer",
     ".comments-section", ".paywall", "[class*='paywall-']", ".share-dialog",
     "[data-component-name='SubscribeWidget']",
+    // Decorative pull quotes duplicate body text — skip them entirely.
+    "[class*='pullquote']", ".pull-quote",
   ].join(",");
 
   const images: { id: number; src: string; alt?: string }[] = [];
@@ -60,6 +62,24 @@ function extractFromDom(): {
       try {
         if (e.matches(SKIP_SELECTOR)) continue;
       } catch { /* exotic elements can throw on matches() */ }
+      if (e.tagName === "FIGCAPTION") {
+        // A caption identifies its picture — attach it to the most recent
+        // image so the overlay shows it under the photo, and keep it out of
+        // the reading flow.
+        const cap = ((e as HTMLElement).innerText || "").replace(/\s+/g, " ").trim();
+        const lastImg = images[images.length - 1];
+        if (cap && lastImg) lastImg.alt = lastImg.alt ? `${lastImg.alt} — ${cap}` : cap;
+        continue;
+      }
+      if (e.tagName === "BLOCKQUOTE") {
+        // Quotes stay in the flow but get visible ❝ ❞ bounds glued to the
+        // first/last words so the reader can tell quoted material apart.
+        const before = out.length;
+        walk(e);
+        const quoted = out.splice(before).join(" ").replace(/\s+/g, " ").trim();
+        if (quoted) out.push(`\n\n❝${quoted}❞\n\n`);
+        continue;
+      }
       if (e.tagName === "A") {
         // Record the hyperlink (readers can't click mid-RSVP), then keep
         // walking so the anchor text still lands in the body.
@@ -109,13 +129,30 @@ function extractFromDom(): {
   const root = candidates.find((el) => (el.innerText?.length ?? 0) > 500) ?? document.body;
   walk(root);
 
-  const text = out
+  let text = out
     .join(" ")
     .replace(/ /g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
     .replace(/\n{2,}/g, "\n\n")
     .trim();
+
+  // Pull quotes that slipped past the class filter: a short paragraph whose
+  // text duplicates a longer paragraph elsewhere is decoration — read once.
+  {
+    const paras = text.split(/\n\n+/);
+    const norm = (s: string) => s.replace(/[❝❞]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const normed = paras.map(norm);
+    text = paras
+      .filter((p, i) => {
+        const n = normed[i]!;
+        const wc = n ? n.split(" ").length : 0;
+        if (wc < 8 || wc > 60) return true;
+        if (/‹IMG:\d+›/.test(p)) return true;
+        return !normed.some((other, j) => j !== i && other.length > n.length && other.includes(n));
+      })
+      .join("\n\n");
+  }
 
   const title =
     (document.querySelector("meta[property='og:title']") as HTMLMetaElement | null)?.content?.trim() ||

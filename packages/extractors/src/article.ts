@@ -114,6 +114,18 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     return label;
   });
 
+  // 4b. Figure captions: an italic-only line straight after an image is the
+  //     picture's caption, not body text — attach it to the image (the
+  //     overlay shows it under the picture) and lift it out of the flow.
+  body = body.replace(
+    /⟦I(\d+)⟧[ \t]*\n+[ \t]*(?:\*|_)([^\n]{4,240}?)(?:\*|_)[ \t]*(?=\n|$)/g,
+    (_m, idxStr: string, cap: string) => {
+      const c = captured[Number(idxStr)];
+      if (c) c.alt = c.alt ? `${c.alt} — ${cap.trim()}` : cap.trim();
+      return ` ⟦I${idxStr}⟧ `;
+    },
+  );
+
   // 5. Now drop runs of 2+ placeholders adjacent ON THE SAME LINE — those are
   //    nav strips (rows of icons). Images in adjacent *paragraphs* are almost
   //    always real content (common on Substack), so newlines break a run.
@@ -131,8 +143,13 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
   // 5. Drop heading hash prefixes (keep heading text).
   body = body.replace(/^#{1,6}\s+/gm, "");
 
-  // 6. Drop blockquote markers, list bullets, table pipes.
-  body = body.replace(/^>\s?/gm, "");
+  // 6. Blockquotes stay in the flow but get visible ❝ ❞ bounds (glued to the
+  //    first/last words so skip-punctuation can't swallow them) — mid-RSVP
+  //    you can always tell you're inside quoted material.
+  body = body.replace(/(?:^[ \t]*>.*(?:\n|$))+/gm, (block) => {
+    const inner = block.replace(/^[ \t]*>\s?/gm, "").replace(/\s+/g, " ").trim();
+    return inner ? `\n\n❝${inner}❞\n\n` : "\n\n";
+  });
   body = body.replace(/^[ \t]*[-*+]\s+/gm, "");
   body = body.replace(/^[ \t]*\d+\.\s+/gm, "");
 
@@ -150,6 +167,11 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
+  // 10. Pull quotes: magazines repeat a snippet of the article in big type;
+  //     after extraction that's a short paragraph duplicating text found
+  //     elsewhere. Drop the duplicate so the flow reads each sentence once.
+  body = dropPullQuotes(body);
+
   return {
     title,
     text: body,
@@ -158,4 +180,20 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     images: images.length ? images : undefined,
     links: links.length ? links : undefined,
   };
+}
+
+/** Remove short paragraphs whose text is contained in a longer paragraph
+ *  elsewhere in the document (the signature of a decorative pull quote). */
+export function dropPullQuotes(text: string): string {
+  const paras = text.split(/\n\n+/);
+  const norm = (s: string) => s.replace(/[❝❞]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const normed = paras.map(norm);
+  const kept = paras.filter((p, i) => {
+    const n = normed[i]!;
+    const wc = n ? n.split(" ").length : 0;
+    if (wc < 8 || wc > 60) return true;
+    if (/‹IMG:\d+›/.test(p)) return true;
+    return !normed.some((other, j) => j !== i && other.length > n.length && other.includes(n));
+  });
+  return kept.join("\n\n");
 }

@@ -134,3 +134,34 @@ describe("parseJinaMarkdown — link capture", () => {
     expect(r.images).toHaveLength(1);
   });
 });
+
+describe("parseJinaMarkdown — captions, quotes, pull quotes", () => {
+  it("attaches an italic caption line to its image and removes it from the flow", () => {
+    const r = parseJinaMarkdown(jina(
+      "Intro paragraph.\n\n![Image 1](https://cdn.example.com/chart-data.png)\n_Source: IPEDS degree completions_\n\nNext paragraph.",
+    ), URL);
+    expect(r.images).toHaveLength(1);
+    expect(r.images![0]!.alt).toContain("Source: IPEDS degree completions");
+    expect(r.text).not.toContain("Source: IPEDS");
+    expect(r.text).toContain("Next paragraph.");
+  });
+
+  it("wraps blockquotes in ❝ ❞ glued to the first and last words", () => {
+    const r = parseJinaMarkdown(jina(
+      "He said it plainly:\n\n> The center cannot hold\n> and never could.\n\nAnd moved on.",
+    ), URL);
+    expect(r.text).toContain("❝The center cannot hold and never could.❞");
+    expect(r.text).toContain("And moved on.");
+  });
+
+  it("drops decorative pull quotes that duplicate body text", () => {
+    const body =
+      "The long paragraph explains that elite overproduction creates far more aspirants than there are places for them to land, which breeds frustration.\n\n" +
+      "elite overproduction creates far more aspirants than there are places for them to land\n\n" +
+      "A closing thought that stands on its own here.";
+    const r = parseJinaMarkdown(jina(body), URL);
+    const occurrences = r.text.split("far more aspirants").length - 1;
+    expect(occurrences).toBe(1);
+    expect(r.text).toContain("A closing thought");
+  });
+});
