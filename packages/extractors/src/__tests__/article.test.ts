@@ -165,3 +165,33 @@ describe("parseJinaMarkdown — captions, quotes, pull quotes", () => {
     expect(r.text).toContain("A closing thought");
   });
 });
+
+describe("parseJinaMarkdown — promo interjections", () => {
+  it("drops short CTA paragraphs but keeps the surrounding article", () => {
+    const r = parseJinaMarkdown(jina([
+      "The first real paragraph of analysis continues here with substance.",
+      "",
+      "Share this post",
+      "",
+      "Subscribe now to upgrade your research and get full access.",
+      "",
+      "Follow me on X for more takes.",
+      "",
+      "Thanks for reading! This post is public so feel free to share it.",
+      "",
+      "Leave a comment",
+      "",
+      "The second real paragraph resumes the argument without interruption.",
+    ].join("\n")), URL);
+    expect(r.text).toContain("first real paragraph");
+    expect(r.text).toContain("second real paragraph");
+    expect(r.text).not.toMatch(/Share this post|Subscribe now|Follow me on X|Thanks for reading|Leave a comment/);
+  });
+
+  it("keeps long body paragraphs that merely mention subscriptions or Twitter", () => {
+    const long =
+      "Netflix said subscribers grew by twelve million in the quarter, and analysts who follow me on this thesis know the subscription economy debate has been raging for years across Twitter and the trade press, with no resolution in sight.";
+    const r = parseJinaMarkdown(jina(long + "\n\nA fine closing paragraph rounds out the piece."), URL);
+    expect(r.text).toContain("subscribers grew by twelve million");
+  });
+});

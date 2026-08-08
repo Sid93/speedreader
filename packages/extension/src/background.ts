@@ -40,6 +40,11 @@ function extractFromDom(): {
     "[data-component-name='SubscribeWidget']",
     // Decorative pull quotes duplicate body text — skip them entirely.
     "[class*='pullquote']", ".pull-quote",
+    // In-post CTA blocks: share/subscribe/upgrade buttons rendered inline
+    // in the article body (Substack wraps them in button containers).
+    ".button-wrapper", "[class*='captioned-button']", "[class*='button-wrap']",
+    ".install-substack-app", "[data-component-name*='Share']",
+    "[data-component-name*='Subscribe']", ".digest-cta",
   ].join(",");
 
   const images: { id: number; src: string; alt?: string }[] = [];
@@ -139,7 +144,10 @@ function extractFromDom(): {
 
   // Pull quotes that slipped past the class filter: a short paragraph whose
   // text duplicates a longer paragraph elsewhere is decoration — read once.
+  // Same pass drops short promo interjections ("Share this post",
+  // "Subscribe to…", "Follow me on X") that render as plain paragraphs.
   {
+    const PROMO_RE = /subscribe (now|today|for free|to)|becom(e|ing) a (paid|free|premium) (subscriber|member|supporter)|upgrade (to|your) (paid|premium|subscription)|upgrade your (research|reading|experience)|follow (me|us) on (x\b|twitter|instagram|threads|linkedin|facebook|youtube|bluesky|mastodon)|share this (post|article|essay)|^share$|^leave a comment$|^restack$|^subscribe$|leave a comment|refer a friend|referral (link|program)|pledge your support|thanks for reading|this post is public|buy me a coffee|patreon|(download|get) the (substack )?app|free (7|14|30)[- ]day trial|start free trial|for paid subscribers( only)?|sign up (for|to) (my|our|the)|get \d+% off/i;
     const paras = text.split(/\n\n+/);
     const norm = (s: string) => s.replace(/[❝❞]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     const normed = paras.map(norm);
@@ -147,8 +155,10 @@ function extractFromDom(): {
       .filter((p, i) => {
         const n = normed[i]!;
         const wc = n ? n.split(" ").length : 0;
-        if (wc < 8 || wc > 60) return true;
+        if (wc === 0) return false;
         if (/‹IMG:\d+›/.test(p)) return true;
+        if (wc <= 25 && PROMO_RE.test(p.trim())) return false;
+        if (wc < 8 || wc > 60) return true;
         return !normed.some((other, j) => j !== i && other.length > n.length && other.includes(n));
       })
       .join("\n\n");

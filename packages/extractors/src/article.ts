@@ -172,6 +172,10 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
   //     elsewhere. Drop the duplicate so the flow reads each sentence once.
   body = dropPullQuotes(body);
 
+  // 11. In-post promo interjections ("Share this post", "Subscribe to…",
+  //     "Follow me on X") break the reading flow — drop them.
+  body = dropPromoInterjections(body);
+
   return {
     title,
     text: body,
@@ -180,6 +184,47 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     images: images.length ? images : undefined,
     links: links.length ? links : undefined,
   };
+}
+
+// Promotional interjections are SHORT standalone paragraphs — a whole
+// paragraph of CTA language. Long body paragraphs that merely mention
+// subscriptions or Twitter are never touched (word-count guard below).
+const PROMO_RE = new RegExp(
+  [
+    /subscribe (now|today|for free|to)/.source,
+    /becom(e|ing) a (paid|free|premium) (subscriber|member|supporter)/.source,
+    /upgrade (to|your) (paid|premium|subscription)/.source,
+    /upgrade your (research|reading|experience)/.source,
+    /follow (me|us) on (x\b|twitter|instagram|threads|linkedin|facebook|youtube|bluesky|mastodon)/.source,
+    /share this (post|article|essay)/.source,
+    /^share$|^leave a comment$|^restack$|^subscribe$/.source,
+    /leave a comment/.source,
+    /refer a friend|referral (link|program)/.source,
+    /pledge your support/.source,
+    /thanks for reading/.source,
+    /this post is public/.source,
+    /buy me a coffee|patreon/.source,
+    /(download|get) the (substack )?app/.source,
+    /free (7|14|30)[- ]day trial|start free trial/.source,
+    /for paid subscribers( only)?/.source,
+    /sign up (for|to) (my|our|the)/.source,
+    /get \d+% off/.source,
+  ].join("|"),
+  "i",
+);
+
+/** Remove short standalone CTA paragraphs ("Share this post", "Subscribe…"). */
+export function dropPromoInterjections(text: string): string {
+  return text
+    .split(/\n\n+/)
+    .filter((p) => {
+      const words = p.trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) return false;
+      if (words.length > 25) return true;
+      if (/‹IMG:\d+›/.test(p)) return true;
+      return !PROMO_RE.test(p);
+    })
+    .join("\n\n");
 }
 
 /** Remove short paragraphs whose text is contained in a longer paragraph
