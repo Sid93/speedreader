@@ -226,6 +226,28 @@ function Player({ doc }: { doc: LibraryDoc }) {
     });
     return list;
   }, [words]);
+  // Section headings, detected heuristically (short standalone paragraph, no
+  // terminal punctuation) — slim tick marks on the scrubber.
+  const sections = useMemo<{ title: string; at: number; pct: number }[]>(() => {
+    const secs: { title: string; at: number; pct: number }[] = [];
+    let wordIdx = 0;
+    for (const para of text.split(/\n{2,}/)) {
+      const ws = para.trim().split(/\s+/).filter(Boolean);
+      if (ws.length === 0) continue;
+      const lastWord = ws[ws.length - 1]!;
+      const isHeading =
+        ws.length <= 8 &&
+        !/[.!?,;:]$/.test(lastWord) &&
+        /[A-Za-z]/.test(para) &&
+        !ws.some((w) => /‹IMG:\d+›/.test(w));
+      if (isHeading && wordIdx > 0) {
+        secs.push({ title: ws.join(" "), at: wordIdx, pct: (wordIdx / Math.max(1, words.length - 1)) * 100 });
+      }
+      wordIdx += ws.length;
+    }
+    return secs;
+  }, [text, words.length]);
+
   const preloadedRef = useRef<Set<number>>(new Set());
   useEffect(() => {
     const imgs = doc.images;
@@ -483,14 +505,32 @@ function Player({ doc }: { doc: LibraryDoc }) {
             <span className="meta">Word {index + 1} of {words.length.toLocaleString()}</span>
             <span className="meta">{minLeft > 0 ? `~${minLeft} min left` : "Almost done"}</span>
           </div>
-          <input
-            type="range"
-            className="scrubber"
-            min={0}
-            max={Math.max(0, words.length - 1)}
-            value={index}
-            onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
-          />
+          <div className="scrubber-wrap">
+            <input
+              type="range"
+              className="scrubber"
+              min={0}
+              max={Math.max(0, words.length - 1)}
+              value={index}
+              onChange={(e) => { schedRef.current?.seek(Number(e.target.value)); setIsPlaying(false); }}
+            />
+            {/* Place finders: images are natural break points — click a dot
+                to jump there; the picture pops up as your bookmark. */}
+            <div className="place-finders">
+              {sections.map((s, i) => (
+                <button key={`s${i}`} className="place-tick" style={{ left: `${s.pct}%` }}
+                  title={s.title} aria-label={`Jump to section: ${s.title}`}
+                  onClick={() => { schedRef.current?.seek(s.at); setIsPlaying(false); }} />
+              ))}
+              {upcomingImages.map((m, i) => (
+                <button key={`img${m.id}`} className="place-dot"
+                  style={{ left: `${(m.at / Math.max(1, words.length - 1)) * 100}%` }}
+                  title={doc.images?.find((x) => x.id === m.id)?.alt || `Image ${i + 1}`}
+                  aria-label={`Jump to image ${i + 1}`}
+                  onClick={() => { schedRef.current?.seek(m.at); setIsPlaying(false); }} />
+              ))}
+            </div>
+          </div>
         </div>
         )}
         <div className="controls">
