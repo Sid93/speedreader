@@ -545,12 +545,23 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
               {paragraphMarks.map((p, i) => (
                 <span key={i} className="paragraph-tick" style={{ left: `${p}%` }} />
               ))}
+            </div>
+            {/* Place finders: clickable landmarks under the scrubber. Images
+                are natural break points in long articles — click a dot to
+                jump there (the picture pops up as your bookmark; Continue
+                resumes reading right after it). */}
+            <div className="place-finders">
               {sections.map((s, i) => (
-                <span key={`s${i}`} className="section-tick" style={{ left: `${s.pct}%` }} title={s.title} />
+                <button key={`s${i}`} className="place-tick" style={{ left: `${s.pct}%` }}
+                  title={s.title} aria-label={`Jump to section: ${s.title}`}
+                  onClick={() => { schedRef.current?.seek(s.at); setIsPlaying(false); }} />
               ))}
-              {upcomingImages.map((m) => (
-                <span key={`img${m.id}`} className="image-dot"
-                  style={{ left: `${(m.at / Math.max(1, words.length - 1)) * 100}%` }} />
+              {upcomingImages.map((m, i) => (
+                <button key={`img${m.id}`} className="place-dot"
+                  style={{ left: `${(m.at / Math.max(1, words.length - 1)) * 100}%` }}
+                  title={doc.images?.find((x) => x.id === m.id)?.alt || `Image ${i + 1}`}
+                  aria-label={`Jump to image ${i + 1}`}
+                  onClick={() => { schedRef.current?.seek(m.at); setIsPlaying(false); }} />
               ))}
             </div>
           </div>
