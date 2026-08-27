@@ -3,6 +3,7 @@ import type { ExtractResult } from "@speedreader/extractors";
 import { saveDoc, listDocs, getProgress, type LibraryDoc } from "@speedreader/storage";
 import { tokenize } from "@speedreader/engine";
 import { Home } from "./Home.js";
+import { maybeSeedDemo } from "./demo.js";
 import { Reader } from "./Reader.js";
 import { Library } from "./Library.js";
 import { Stats } from "./Stats.js";
@@ -40,6 +41,21 @@ export function App() {
     setTheme((t) => (t === "system" ? "light" : t === "light" ? "dark" : "system"));
   }
   const themeIcon = theme === "light" ? "☀︎" : theme === "dark" ? "☾" : "✦";
+
+  // Screenshot/QA staging via ?demo= (see demo.ts). No-op without the param.
+  useEffect(() => {
+    (async () => {
+      const demo = await maybeSeedDemo();
+      if (!demo) return;
+      if (demo.mode === "library") setTab("library");
+      else if (demo.doc) {
+        setDoc(demo.doc);
+        if (demo.mode === "links") {
+          setTimeout(() => document.querySelector(".link-panel")?.scrollIntoView({ block: "center" }), 1200);
+        }
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (doc || tab !== "home") return;
