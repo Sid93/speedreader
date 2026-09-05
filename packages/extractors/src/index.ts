@@ -13,6 +13,15 @@ export interface ExtractedImage {
   page?: number;
 }
 
+export interface ExtractedAside {
+  /** What kind of interruption this was. */
+  kind: "quote" | "embed" | "promo";
+  /** The aside's text, removed from the reading flow. */
+  text: string;
+  /** Word index in the final text where it originally sat. */
+  at: number;
+}
+
 export interface ExtractedLink {
   /** Link text as it appeared in the article (trimmed, capped). */
   text: string;
@@ -35,6 +44,8 @@ export interface ExtractResult {
   images?: ExtractedImage[];
   /** Hyperlinks found in the article body, in document order, deduped. */
   links?: ExtractedLink[];
+  /** Flow-breaking content (embeds, long quotes, promos) moved out of `text`. */
+  asides?: ExtractedAside[];
 }
 
 /** Regex used by readers to detect image marker tokens. Lenient: matches

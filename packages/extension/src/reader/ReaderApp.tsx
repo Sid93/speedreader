@@ -119,7 +119,7 @@ const STAGED_KEY = "sr.staged";
 type Staged =
   | { mode: "text"; title: string; text: string; at: number }
   | { mode: "url"; title: string; url: string; at: number }
-  | { mode: "dom"; title: string; text: string; images?: LibraryDoc["images"]; links?: LibraryDoc["links"]; url: string; at: number };
+  | { mode: "dom"; title: string; text: string; images?: LibraryDoc["images"]; links?: LibraryDoc["links"]; asides?: LibraryDoc["asides"]; url: string; at: number };
 
 export function ReaderApp() {
   const [doc, setDoc] = useState<LibraryDoc | null>(null);
@@ -141,6 +141,7 @@ export function ReaderApp() {
         let source: LibraryDoc["source"] = "text";
         let images: LibraryDoc["images"];
         let links: LibraryDoc["links"];
+        let asides: LibraryDoc["asides"];
         if (staged.mode === "text") {
           text = staged.text;
           source = "text";
@@ -151,6 +152,7 @@ export function ReaderApp() {
           source = "article";
           images = staged.images;
           links = staged.links;
+          asides = staged.asides;
         } else {
           const r = await extractArticle(staged.url);
           title = r.title || staged.title;
@@ -158,9 +160,10 @@ export function ReaderApp() {
           source = "article";
           images = r.images;
           links = r.links;
+          asides = r.asides;
         }
         const wordCount = tokenize(text).length;
-        const saved = await saveDoc({ title, text, source, wordCount, images, links });
+        const saved = await saveDoc({ title, text, source, wordCount, images, links, asides });
         setDoc(saved);
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
@@ -541,6 +544,26 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <button onClick={() => schedRef.current?.seek(words.length - 1)}>⏭</button>
         </div>
       </div>
+      )}
+
+      {!focusMode && (doc.asides?.length ?? 0) > 0 && (
+        <div className="panel aside-panel">
+          <div className="panel-row">
+            <strong>💬 Asides</strong>
+            <span className="meta">{doc.asides!.length} — embeds, long quotes & promos moved out of the flow</span>
+          </div>
+          <div className="aside-list">
+            {doc.asides!.map((a, i) => (
+              <button key={i} className="aside-row" title="Jump to where this sat in the article"
+                onClick={() => { schedRef.current?.seek(Math.min(a.at, words.length - 1)); setIsPlaying(false); }}>
+                <span className={`aside-kind aside-kind-${a.kind}`}>
+                  {a.kind === "embed" ? "Embed" : a.kind === "quote" ? "Quote" : "Promo"}
+                </span>
+                <span className="aside-text">{a.text}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {!focusMode && (doc.links?.length ?? 0) > 0 && (

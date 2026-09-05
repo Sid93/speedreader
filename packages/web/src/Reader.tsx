@@ -604,6 +604,26 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         </div>
       )}
 
+      {!focusMode && (doc.asides?.length ?? 0) > 0 && (
+        <div className="panel aside-panel">
+          <div className="panel-row">
+            <strong>💬 Asides</strong>
+            <span className="meta">{doc.asides!.length} — embeds, long quotes & promos moved out of the flow</span>
+          </div>
+          <div className="aside-list">
+            {doc.asides!.map((a, i) => (
+              <button key={i} className="aside-row" title="Jump to where this sat in the article"
+                onClick={() => { schedRef.current?.seek(Math.min(a.at, words.length - 1)); setIsPlaying(false); }}>
+                <span className={`aside-kind aside-kind-${a.kind}`}>
+                  {a.kind === "embed" ? "Embed" : a.kind === "quote" ? "Quote" : "Promo"}
+                </span>
+                <span className="aside-text">{a.text}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!focusMode && settingsOpen && (
       <>
       {(mode === "rsvp" || mode === "flash") && (

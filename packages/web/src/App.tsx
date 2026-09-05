@@ -83,6 +83,7 @@ export function App() {
       wordCount,
       images: r.images,
       links: r.links,
+      asides: r.asides,
     });
     setDoc(saved);
   }

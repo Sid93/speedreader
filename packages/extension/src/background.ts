@@ -30,6 +30,7 @@ function extractFromDom(): {
   text: string;
   images: { id: number; src: string; alt?: string }[];
   links: { text: string; href: string }[];
+  asides: { kind: "quote" | "embed" | "promo"; text: string; at: number }[];
 } {
   const SKIP_SELECTOR = [
     "script", "style", "noscript", "nav", "header", "footer", "aside", "form",
@@ -76,13 +77,35 @@ function extractFromDom(): {
         if (cap && lastImg) lastImg.alt = lastImg.alt ? `${lastImg.alt} — ${cap}` : cap;
         continue;
       }
+      try {
+        if (e.matches(".tweet, .twitter-tweet, [data-component-name='Tweet'], .tweet-embed")) {
+          // Embedded tweets break the flow: keep their images as pause
+          // points, move the text to the asides panel.
+          for (const img of Array.from(e.querySelectorAll("img"))) {
+            const im = img as HTMLImageElement;
+            const src = im.currentSrc || im.src || "";
+            const w = im.naturalWidth || Number(im.getAttribute("width")) || 0;
+            if (/^https?:\/\//i.test(src) && w >= 200 && !seenSrc.has(src)) {
+              seenSrc.add(src);
+              images.push({ id: images.length, src, alt: im.alt || undefined });
+              out.push(`\n\n‹IMG:${images.length - 1}›\n\n`);
+            }
+          }
+          const t = ((e as HTMLElement).innerText || "").replace(/\s+/g, " ").trim();
+          if (t) out.push(`\n\n⟬embed⟭${t}\n\n`);
+          continue;
+        }
+      } catch { /* matches() can throw on exotic elements */ }
       if (e.tagName === "BLOCKQUOTE") {
-        // Quotes stay in the flow but get visible ❝ ❞ bounds glued to the
-        // first/last words so the reader can tell quoted material apart.
+        // Short quotes stay in the flow with ❝ ❞ bounds; long ones are
+        // flow-breakers and move to the asides panel.
         const before = out.length;
         walk(e);
         const quoted = out.splice(before).join(" ").replace(/\s+/g, " ").trim();
-        if (quoted) out.push(`\n\n❝${quoted}❞\n\n`);
+        if (quoted) {
+          if (quoted.split(" ").length > 40) out.push(`\n\n⟬quote⟭${quoted}\n\n`);
+          else out.push(`\n\n❝${quoted}❞\n\n`);
+        }
         continue;
       }
       if (e.tagName === "A") {
@@ -142,26 +165,41 @@ function extractFromDom(): {
     .replace(/\n{2,}/g, "\n\n")
     .trim();
 
-  // Pull quotes that slipped past the class filter: a short paragraph whose
-  // text duplicates a longer paragraph elsewhere is decoration — read once.
-  // Same pass drops short promo interjections ("Share this post",
-  // "Subscribe to…", "Follow me on X") that render as plain paragraphs.
+  // Final flow pass: move tagged embeds/long quotes and short promo
+  // paragraphs into asides (recording their word position), and drop
+  // decorative pull quotes that duplicate body text.
+  const asides: { kind: "quote" | "embed" | "promo"; text: string; at: number }[] = [];
   {
     const PROMO_RE = /subscribe (now|today|for free|to)|becom(e|ing) a (paid|free|premium) (subscriber|member|supporter)|upgrade (to|your) (paid|premium|subscription)|upgrade your (research|reading|experience)|follow (me|us) on (x\b|twitter|instagram|threads|linkedin|facebook|youtube|bluesky|mastodon)|share this (post|article|essay)|^share$|^leave a comment$|^restack$|^subscribe$|leave a comment|refer a friend|referral (link|program)|pledge your support|thanks for reading|this post is public|buy me a coffee|patreon|(download|get) the (substack )?app|free (7|14|30)[- ]day trial|start free trial|for paid subscribers( only)?|sign up (for|to) (my|our|the)|get \d+% off/i;
     const paras = text.split(/\n\n+/);
-    const norm = (s: string) => s.replace(/[❝❞]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const normed = paras.map(norm);
-    text = paras
-      .filter((p, i) => {
-        const n = normed[i]!;
-        const wc = n ? n.split(" ").length : 0;
-        if (wc === 0) return false;
-        if (/‹IMG:\d+›/.test(p)) return true;
-        if (wc <= 25 && PROMO_RE.test(p.trim())) return false;
-        if (wc < 8 || wc > 60) return true;
-        return !normed.some((other, j) => j !== i && other.length > n.length && other.includes(n));
-      })
-      .join("\n\n");
+    const norm = (x: string) => x.replace(/[❝❞]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const normed = paras.map((q) => (q.startsWith("⟬") ? "" : norm(q)));
+    const kept: string[] = [];
+    let wordIdx = 0;
+    for (let i = 0; i < paras.length; i++) {
+      const q = paras[i]!.trim();
+      if (!q) continue;
+      const tag = q.match(/^⟬(embed|quote|promo)⟭/);
+      if (tag) {
+        asides.push({ kind: tag[1] as "embed" | "quote" | "promo", text: q.slice(tag[0].length).trim(), at: wordIdx });
+        continue;
+      }
+      const ws = q.split(/\s+/).filter(Boolean);
+      const hasImg = /‹IMG:\d+›/.test(q);
+      if (!hasImg && ws.length <= 25 && PROMO_RE.test(q)) {
+        asides.push({ kind: "promo", text: q, at: wordIdx });
+        continue;
+      }
+      const n = normed[i]!;
+      const wc = n ? n.split(" ").length : 0;
+      if (!hasImg && wc >= 8 && wc <= 60 &&
+          normed.some((other, j) => j !== i && other.length > n.length && other.includes(n))) {
+        continue;
+      }
+      kept.push(q);
+      wordIdx += ws.length;
+    }
+    text = kept.join("\n\n");
   }
 
   const title =
@@ -171,7 +209,7 @@ function extractFromDom(): {
     document.title ||
     location.href;
 
-  return { title, text, images, links };
+  return { title, text, images, links, asides };
 }
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -204,6 +242,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           text: r.text,
           images: r.images.length ? r.images : undefined,
           links: r.links.length ? r.links : undefined,
+          asides: r.asides.length ? r.asides : undefined,
           url: tab.url,
           at: Date.now(),
         };

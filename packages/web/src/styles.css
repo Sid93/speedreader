@@ -1244,3 +1244,45 @@ kbd {
 }
 .app.playing .link-panel { opacity: 0.3; transition: opacity 0.25s ease; }
 .app.playing .link-panel:hover { opacity: 1; }
+
+/* ── Asides panel ────────────────────────────────────────────────────── */
+.aside-list {
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.aside-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  padding: 9px 6px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.aside-row:last-child { border-bottom: none; }
+.aside-row:hover { background: var(--surface-2); }
+.aside-kind {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  margin-top: 1px;
+}
+.aside-kind-embed { background: rgba(6, 182, 212, 0.15); color: var(--accent-2); }
+.aside-kind-quote { background: rgba(124, 58, 237, 0.18); color: #a78bfa; }
+.aside-kind-promo { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
+.aside-text {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.app.playing .aside-panel { opacity: 0.3; transition: opacity 0.25s ease; }
+.app.playing .aside-panel:hover { opacity: 1; }

@@ -195,3 +195,36 @@ describe("parseJinaMarkdown — promo interjections", () => {
     expect(r.text).toContain("subscribers grew by twelve million");
   });
 });
+
+describe("parseJinaMarkdown — asides", () => {
+  it("moves embedded tweet cards to asides, keeping their images in the flow", () => {
+    const tweet = "[![Image 1: X avatar](https://substackcdn.com/image/fetch/w_40,h_40,c_fill/av.png) Ben Schmidt@benmschmidt Some very interesting data about degree completions for the 2021 class that everyone should look at carefully ![Image 2](https://pbs.example.com/chart.jpg) 10:57 PM · Aug 23, 2022 163 Reposts · 425 Likes](https://twitter.com/benmschmidt/status/123)";
+    const r = parseJinaMarkdown(jina(`Intro paragraph before the tweet.\n\n${tweet}\n\nProse continues after the embed here.`), URL);
+    expect(r.asides).toHaveLength(1);
+    expect(r.asides![0]!.kind).toBe("embed");
+    expect(r.asides![0]!.text).toContain("Ben Schmidt");
+    expect(r.text).not.toContain("Reposts");
+    expect(r.text).toContain("Prose continues after");
+    // The tweet's chart image survives as a flow pause-point.
+    expect(r.images!.some((i) => i.src.includes("chart.jpg"))).toBe(true);
+    expect(r.text).toMatch(/‹IMG:\d+›/);
+    // And the tweet link is still collected.
+    expect(r.links!.some((l) => l.href.includes("twitter.com"))).toBe(true);
+  });
+
+  it("moves LONG blockquotes to asides but keeps short ones inline", () => {
+    const long = "> " + "steady words keep marching onward through this very long quotation ".repeat(7);
+    const r = parseJinaMarkdown(jina(`He said:\n\n${long}\n\nBut briefly:\n\n> Short and sweet.\n\nDone.`), URL);
+    expect(r.asides!.filter((a) => a.kind === "quote")).toHaveLength(1);
+    expect(r.text).not.toContain("steady words keep marching");
+    expect(r.text).toContain("❝Short and sweet.❞");
+  });
+
+  it("moves promo interjections to asides instead of deleting them", () => {
+    const r = parseJinaMarkdown(jina("Real paragraph one continues.\n\nShare this post\n\nReal paragraph two concludes."), URL);
+    expect(r.text).not.toContain("Share this post");
+    expect(r.asides).toHaveLength(1);
+    expect(r.asides![0]).toMatchObject({ kind: "promo", text: "Share this post" });
+    expect(r.asides![0]!.at).toBeGreaterThan(0);
+  });
+});

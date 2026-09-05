@@ -28,6 +28,7 @@ export async function saveDoc(
     lastReadAt: now,
     images: input.images,
     links: input.links,
+    asides: input.asides,
   };
   await db.put("library", doc);
   return doc;

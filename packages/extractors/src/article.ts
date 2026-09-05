@@ -1,4 +1,4 @@
-import type { ExtractResult, ExtractedImage, ExtractedLink } from "./index.js";
+import type { ExtractResult, ExtractedImage, ExtractedLink, ExtractedAside } from "./index.js";
 import { imageMarker } from "./index.js";
 
 // Common patterns for navigation/UI/tracking images that the reader should
@@ -98,6 +98,7 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
   const seenHref = new Set<string>();
   const pageBase = url.split("#")[0];
   const JUNK_LINK_RE = /substackcdn\.com\/image|\/(sharer|intent\/tweet|share\?)|action=share|\/subscribe(\?|$)|\/comments(\?|$)/i;
+  const TWEET_RE = /https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^/]+\/status\//i;
   body = body.replace(/\[([^\[\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_m, label: string, href: string) => {
     const text = (label ?? "").replace(/⟦I\d+⟧/g, "").replace(/\s+/g, " ").trim();
     if (
@@ -110,6 +111,13 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     ) {
       seenHref.add(href);
       links.push({ text: text.slice(0, 160), href });
+    }
+    // Embedded tweet cards (long linked blocks pointing at a tweet) break the
+    // reading flow — move the text to an aside, but keep any images from the
+    // embed (charts in tweets are real content) as flow pause-points.
+    if (TWEET_RE.test(href) && text.split(/\s+/).length > 15) {
+      const embedImages = (label.match(/⟦I\d+⟧/g) ?? []).map((p) => `\n\n${p}\n\n`).join("");
+      return `${embedImages}\n\n⟬embed⟭${text}\n\n`;
     }
     return label;
   });
@@ -143,12 +151,14 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
   // 5. Drop heading hash prefixes (keep heading text).
   body = body.replace(/^#{1,6}\s+/gm, "");
 
-  // 6. Blockquotes stay in the flow but get visible ❝ ❞ bounds (glued to the
-  //    first/last words so skip-punctuation can't swallow them) — mid-RSVP
-  //    you can always tell you're inside quoted material.
+  // 6. Blockquotes: short ones stay in the flow with visible ❝ ❞ bounds
+  //    (glued to the first/last words so skip-punctuation can't swallow
+  //    them); LONG ones are flow-breakers and move to the asides panel.
   body = body.replace(/(?:^[ \t]*>.*(?:\n|$))+/gm, (block) => {
     const inner = block.replace(/^[ \t]*>\s?/gm, "").replace(/\s+/g, " ").trim();
-    return inner ? `\n\n❝${inner}❞\n\n` : "\n\n";
+    if (!inner) return "\n\n";
+    if (inner.split(/\s+/).length > 40) return `\n\n⟬quote⟭${inner}\n\n`;
+    return `\n\n❝${inner}❞\n\n`;
   });
   body = body.replace(/^[ \t]*[-*+]\s+/gm, "");
   body = body.replace(/^[ \t]*\d+\.\s+/gm, "");
@@ -167,14 +177,12 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  // 10. Pull quotes: magazines repeat a snippet of the article in big type;
-  //     after extraction that's a short paragraph duplicating text found
-  //     elsewhere. Drop the duplicate so the flow reads each sentence once.
-  body = dropPullQuotes(body);
-
-  // 11. In-post promo interjections ("Share this post", "Subscribe to…",
-  //     "Follow me on X") break the reading flow — drop them.
-  body = dropPromoInterjections(body);
+  // 10. Final flow pass: drop decorative pull quotes (short paragraphs that
+  //     duplicate body text), and move flow-breakers — tagged embeds/long
+  //     quotes plus promo interjections — into the asides list with the word
+  //     position they came from.
+  const { text: cleaned, asides } = extractAsides(body);
+  body = cleaned;
 
   return {
     title,
@@ -183,6 +191,7 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     meta: { url, imageCount: images.length },
     images: images.length ? images : undefined,
     links: links.length ? links : undefined,
+    asides: asides.length ? asides : undefined,
   };
 }
 
@@ -213,32 +222,43 @@ const PROMO_RE = new RegExp(
   "i",
 );
 
-/** Remove short standalone CTA paragraphs ("Share this post", "Subscribe…"). */
-export function dropPromoInterjections(text: string): string {
-  return text
-    .split(/\n\n+/)
-    .filter((p) => {
-      const words = p.trim().split(/\s+/).filter(Boolean);
-      if (words.length === 0) return false;
-      if (words.length > 25) return true;
-      if (/‹IMG:\d+›/.test(p)) return true;
-      return !PROMO_RE.test(p);
-    })
-    .join("\n\n");
-}
-
-/** Remove short paragraphs whose text is contained in a longer paragraph
- *  elsewhere in the document (the signature of a decorative pull quote). */
-export function dropPullQuotes(text: string): string {
+/**
+ * Final flow pass. Walks paragraphs of the cleaned text and:
+ *  - moves ⟬embed⟭/⟬quote⟭-tagged paragraphs into asides,
+ *  - moves short standalone CTA paragraphs into asides (kind "promo"),
+ *  - drops decorative pull quotes (short paragraphs duplicated inside a
+ *    longer paragraph elsewhere) entirely,
+ * recording for each aside the word index where it sat in the final text.
+ */
+export function extractAsides(text: string): { text: string; asides: ExtractedAside[] } {
   const paras = text.split(/\n\n+/);
   const norm = (s: string) => s.replace(/[❝❞]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const normed = paras.map(norm);
-  const kept = paras.filter((p, i) => {
+  const normed = paras.map((p) => (p.startsWith("⟬") ? "" : norm(p)));
+  const asides: ExtractedAside[] = [];
+  const kept: string[] = [];
+  let wordIdx = 0;
+  for (let i = 0; i < paras.length; i++) {
+    const p = paras[i]!.trim();
+    if (!p) continue;
+    const tag = p.match(/^⟬(embed|quote|promo)⟭/);
+    if (tag) {
+      asides.push({ kind: tag[1] as ExtractedAside["kind"], text: p.slice(tag[0].length).trim(), at: wordIdx });
+      continue;
+    }
+    const words = p.split(/\s+/).filter(Boolean);
+    const hasImg = /‹IMG:\d+›/.test(p);
+    if (!hasImg && words.length <= 25 && PROMO_RE.test(p)) {
+      asides.push({ kind: "promo", text: p, at: wordIdx });
+      continue;
+    }
     const n = normed[i]!;
     const wc = n ? n.split(" ").length : 0;
-    if (wc < 8 || wc > 60) return true;
-    if (/‹IMG:\d+›/.test(p)) return true;
-    return !normed.some((other, j) => j !== i && other.length > n.length && other.includes(n));
-  });
-  return kept.join("\n\n");
+    if (!hasImg && wc >= 8 && wc <= 60 &&
+        normed.some((other, j) => j !== i && other.length > n.length && other.includes(n))) {
+      continue; // decorative pull quote — pure duplication, drop it
+    }
+    kept.push(p);
+    wordIdx += words.length;
+  }
+  return { text: kept.join("\n\n"), asides };
 }

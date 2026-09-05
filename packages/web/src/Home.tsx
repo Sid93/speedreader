@@ -38,6 +38,7 @@ export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => v
           wordCount: tokenize(r.text).length,
           images: r.images,
           links: r.links,
+          asides: r.asides,
         });
         mark(i, { state: "done", title: r.title });
       } catch (e) {

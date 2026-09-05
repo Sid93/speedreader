@@ -12,6 +12,12 @@ export interface LibraryDocLink {
   href: string;
 }
 
+export interface LibraryDocAside {
+  kind: "quote" | "embed" | "promo";
+  text: string;
+  at: number;
+}
+
 export interface LibraryDoc {
   id: string;
   title: string;
@@ -24,6 +30,8 @@ export interface LibraryDoc {
   images?: LibraryDocImage[];
   /** Hyperlinks captured from the article body, in document order. */
   links?: LibraryDocLink[];
+  /** Flow-breaking content (embeds, long quotes, promos) moved out of `text`. */
+  asides?: LibraryDocAside[];
 }
 
 export interface Progress {
