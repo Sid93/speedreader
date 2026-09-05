@@ -182,10 +182,43 @@ async function extractPageImages(pdfjs: any, page: any): Promise<{ src: string; 
   return imgs;
 }
 
+/** Collect embedded raster images from a page WITHOUT rendering it.
+ *  getOperatorList alone makes pdf.js decode image XObjects into page.objs,
+ *  so books get their figures at a fraction of the cost of a full render
+ *  (measured ~4s across a 482-page book vs. minutes with per-page render). */
+async function scanEmbeddedImages(pdfjs: any, page: any): Promise<{ src: string; w: number; h: number }[]> {
+  let opList: any;
+  try {
+    opList = await page.getOperatorList();
+  } catch {
+    return [];
+  }
+  const OPS = pdfjs.OPS;
+  const ids = new Set<string>();
+  for (let i = 0; i < opList.fnArray.length; i++) {
+    const fn = opList.fnArray[i];
+    if (fn === OPS.paintImageXObject || fn === OPS.paintJpegXObject) {
+      const objId = opList.argsArray[i]?.[0];
+      if (typeof objId === "string") ids.add(objId);
+    }
+  }
+  const imgs: { src: string; w: number; h: number }[] = [];
+  for (const id of ids) {
+    // More than 2 images on a book page is almost always decoration.
+    if (imgs.length >= 2) break;
+    const dataUrl = await imgObjToDataUrl(page, id);
+    if (dataUrl) imgs.push(dataUrl);
+  }
+  return imgs;
+}
+
 /** Above this page count, skip per-page image/chart extraction: rendering
  *  every page of an ebook to canvas takes minutes and can crash the tab.
- *  Text extraction alone stays fast even for 500-page books. */
+ *  Long documents still get embedded figures via scanEmbeddedImages. */
 const IMAGE_EXTRACTION_MAX_PAGES = 40;
+
+/** Safety valve for image-heavy books (photo albums, scanned PDFs). */
+const BOOK_IMAGE_CAP = 150;
 
 export async function extractPdf(
   file: File,
@@ -225,6 +258,19 @@ export async function extractPdf(
         /* skip */
       }
     } else {
+      // Books still get their figures — scanEmbeddedImages decodes image
+      // XObjects without the per-page canvas render that made big PDFs hang.
+      if (captured.length < BOOK_IMAGE_CAP) {
+        try {
+          const pageImages = await scanEmbeddedImages(pdfjs, page);
+          for (const img of pageImages) {
+            captured.push({ src: img.src, page: i, w: img.w, h: img.h });
+            fullText += ` ⟦P${captured.length - 1}⟧ `;
+          }
+        } catch {
+          /* skip */
+        }
+      }
       // Free page resources as we go — books would otherwise pile up memory.
       try { page.cleanup(); } catch { /* fine */ }
     }
@@ -323,20 +369,46 @@ export async function extractPdf(
 
   // For book-length PDFs, split into chapters (outline first, heading
   // heuristic as fallback) so the app can load one chapter at a time.
-  let chapters: { title: string; text: string }[] | undefined;
+  let chapters: { title: string; text: string; images?: ExtractedImage[] }[] | undefined;
   if (lightMode) {
     const bounds = await detectChapters(pdf, pageTexts);
     if (bounds.length >= 2) {
+      // Surviving images per page (the global dupe/chrome filter above
+      // already decided which captures to keep via `drop`).
+      const byPage = new Map<number, Cap[]>();
+      captured.forEach((c, idx) => {
+        if (drop.has(idx)) return;
+        const list = byPage.get(c.page) ?? [];
+        list.push(c);
+        byPage.set(c.page, list);
+      });
+      // Each chapter gets its own images array with ids renumbered from 0,
+      // markers appended at the owning page's position in the chapter text.
+      const buildChapter = (from: number, to: number) => {
+        const imgs: ExtractedImage[] = [];
+        const pieces: string[] = [];
+        for (let p = from; p < to; p++) {
+          let t = pageTexts[p]!;
+          for (const c of byPage.get(p + 1) ?? []) {
+            const id = imgs.length;
+            imgs.push({ id, src: c.src, page: c.page });
+            t += ` ${imageMarker(id)} `;
+          }
+          pieces.push(t);
+        }
+        const text = pieces.join("\n\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+        return { text, images: imgs.length ? imgs : undefined };
+      };
       chapters = [];
       if (bounds[0]!.startPage > 0) {
-        const fm = pageTexts.slice(0, bounds[0]!.startPage).join("\n\n").trim();
-        if (fm.split(/\s+/).length > 150) chapters.push({ title: "Front matter", text: fm });
+        const fm = buildChapter(0, bounds[0]!.startPage);
+        if (fm.text.split(/\s+/).length > 150) chapters.push({ title: "Front matter", ...fm });
       }
       for (let i = 0; i < bounds.length; i++) {
         const from = bounds[i]!.startPage;
         const to = i + 1 < bounds.length ? bounds[i + 1]!.startPage : pageTexts.length;
-        const t = pageTexts.slice(from, to).join("\n\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-        if (t.split(/\s+/).length > 30) chapters.push({ title: bounds[i]!.title, text: t });
+        const c = buildChapter(from, to);
+        if (c.text.split(/\s+/).length > 30) chapters.push({ title: bounds[i]!.title, ...c });
       }
       if (chapters.length < 2) chapters = undefined;
     }
@@ -365,8 +437,18 @@ async function detectChapters(
   try {
     const outline = await pdf.getOutline();
     if (outline && outline.length >= 2) {
+      // Flatten one level of nesting: many books put chapters as children
+      // of part entries, and part-sized chunks are too big to read in one go.
+      const flat: any[] = [];
+      const walk = (entries: any[], depth: number) => {
+        for (const it of entries ?? []) {
+          flat.push(it);
+          if (depth < 1 && Array.isArray(it.items) && it.items.length) walk(it.items, depth + 1);
+        }
+      };
+      walk(outline, 0);
       const items: { title: string; startPage: number }[] = [];
-      for (const it of outline) {
+      for (const it of flat) {
         try {
           let dest = it.dest;
           if (typeof dest === "string") dest = await pdf.getDestination(dest);

@@ -70,6 +70,7 @@ export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => v
             text: c.text,
             source: result.source,
             wordCount: tokenize(c.text).length,
+            images: c.images,
           });
         }
         const first = result.chapters[0]!;
@@ -78,7 +79,7 @@ export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => v
           title: `${book} — 1. ${first.title}`,
           text: first.text,
           chapters: undefined,
-          images: undefined,
+          images: first.images,
           links: undefined,
           asides: undefined,
         });
