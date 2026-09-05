@@ -5,15 +5,18 @@ const MENU_SELECTION = "speedreader-selection";
 const STAGED_KEY = "sr.staged";
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: MENU_PAGE,
-    title: "Speed read this page",
-    contexts: ["page"],
-  });
-  chrome.contextMenus.create({
-    id: MENU_SELECTION,
-    title: "Speed read selection",
-    contexts: ["selection"],
+  // On unpacked reloads the previous menu items can survive into the new
+  // registration, so create() would fail with "duplicate id". Clear first,
+  // and read lastError in the create callbacks so nothing is logged unchecked.
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create(
+      { id: MENU_PAGE, title: "Speed read this page", contexts: ["page"] },
+      () => void chrome.runtime.lastError,
+    );
+    chrome.contextMenus.create(
+      { id: MENU_SELECTION, title: "Speed read selection", contexts: ["selection"] },
+      () => void chrome.runtime.lastError,
+    );
   });
 });
 
