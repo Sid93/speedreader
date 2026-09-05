@@ -5,6 +5,7 @@ import {
   saveProgress,
   getProgress,
   recordWords,
+  listDocs,
   type LibraryDoc,
 } from "@speedreader/storage";
 import { BionicView } from "./BionicView.js";
@@ -24,7 +25,7 @@ const FONT_OPTIONS: { label: string; value: string }[] = [
   { label: "Dyslexic", value: "'OpenDyslexic', sans-serif" },
 ];
 
-export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void }) {
+export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () => void; onNext?: (d: LibraryDoc) => void }) {
   const [skimMode, setSkimMode] = useState(false);
   const [skimRatio, setSkimRatio] = useState(0.25);
   const effectiveText = useMemo(() => (skimMode ? skim(doc.text, skimRatio) : doc.text), [doc.text, skimMode, skimRatio]);
@@ -56,6 +57,7 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
   const [cameraAssist, setCameraAssist] = useState(() => localStorage.getItem("sr.cameraAssist") === "1");
   useEffect(() => { localStorage.setItem("sr.cameraAssist", cameraAssist ? "1" : "0"); }, [cameraAssist]);
   const [camToast, setCamToast] = useState<string | null>(null);
+  const [nextDoc, setNextDoc] = useState<LibraryDoc | null>(null);
   const pausedByCameraRef = useRef(false);
   const lastBlinkWarnRef = useRef(0);
   const camActiveSinceRef = useRef(0);
@@ -182,7 +184,22 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
         }
         if (metronome) playTick();
       },
-      onFinish: () => { setIsPlaying(false); setShowQuiz(true); },
+      onFinish: () => {
+        setIsPlaying(false);
+        setShowQuiz(true);
+        // Offer the next unstarted doc (next book chapter or queued article).
+        (async () => {
+          const docs = await listDocs();
+          const unstarted: LibraryDoc[] = [];
+          for (const d of docs) {
+            if (d.id === doc.id) continue;
+            const pr = await getProgress(d.id);
+            if ((pr?.currentIndex ?? 0) === 0) unstarted.push(d);
+          }
+          unstarted.sort((a, b) => a.addedAt - b.addedAt);
+          setNextDoc(unstarted[0] ?? null);
+        })();
+      },
     });
     s.seek(index);
     schedRef.current = s;
@@ -427,6 +444,15 @@ export function Reader({ doc, onBack }: { doc: LibraryDoc; onBack: () => void })
           }}
         />
       )}
+      {nextDoc && onNext && (
+        <button className="continue-card" style={{ marginBottom: 14 }}
+          onClick={() => { setNextDoc(null); setShowQuiz(false); onNext(nextDoc); }}>
+          <div className="continue-label">📖 Up next</div>
+          <div className="continue-title">{nextDoc.title}</div>
+          <div className="continue-meta">{nextDoc.wordCount.toLocaleString()} words · start reading →</div>
+        </button>
+      )}
+
       {showHum && <div className="hum-toast">🎵 Hum softly while reading</div>}
       {camToast && <div className="hum-toast">{camToast}</div>}
 

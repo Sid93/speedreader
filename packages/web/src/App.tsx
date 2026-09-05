@@ -89,7 +89,7 @@ export function App() {
   }
 
   if (doc) {
-    return <Reader doc={doc} onBack={() => { setDoc(null); setTab("library"); }} />;
+    return <Reader key={doc.id} doc={doc} onBack={() => { setDoc(null); setTab("library"); }} onNext={(d) => setDoc(d)} />;
   }
 
   return (

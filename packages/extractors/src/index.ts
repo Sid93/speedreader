@@ -46,6 +46,9 @@ export interface ExtractResult {
   links?: ExtractedLink[];
   /** Flow-breaking content (embeds, long quotes, promos) moved out of `text`. */
   asides?: ExtractedAside[];
+  /** For book-length sources: the text split into chapters. When present,
+   *  the app should save chapters as separate docs instead of one giant one. */
+  chapters?: { title: string; text: string }[];
 }
 
 /** Regex used by readers to detect image marker tokens. Lenient: matches

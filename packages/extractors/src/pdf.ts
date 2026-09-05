@@ -182,14 +182,24 @@ async function extractPageImages(pdfjs: any, page: any): Promise<{ src: string; 
   return imgs;
 }
 
-export async function extractPdf(file: File): Promise<ExtractResult> {
+/** Above this page count, skip per-page image/chart extraction: rendering
+ *  every page of an ebook to canvas takes minutes and can crash the tab.
+ *  Text extraction alone stays fast even for 500-page books. */
+const IMAGE_EXTRACTION_MAX_PAGES = 40;
+
+export async function extractPdf(
+  file: File,
+  onProgress?: (done: number, total: number) => void,
+): Promise<ExtractResult> {
   const pdfjs = await loadPdfjs();
   const buf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
+  const lightMode = pdf.numPages > IMAGE_EXTRACTION_MAX_PAGES;
 
   // Two-pass: capture images into placeholders, filter, then renumber.
   type Cap = { src: string; page: number; w: number; h: number; isPageSnapshot?: boolean };
   const captured: Cap[] = [];
+  const pageTexts: string[] = [];
   const pageTextLength: number[] = [];
   const pageRefs: { page: any; rendered: any }[] = []; // keep so we can snapshot later
   let fullText = "";
@@ -198,20 +208,27 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const pageText = pageItemsToText(content.items as any[]);
+    pageTexts.push(pageText);
     pageTextLength.push(pageText.length);
-    pageRefs.push({ page, rendered: null });
+    if (!lightMode) pageRefs.push({ page, rendered: null });
     if (i > 1) fullText += "\n\n";
     fullText += pageText;
 
-    try {
-      const pageImages = await extractPageImages(pdfjs, page);
-      for (const img of pageImages) {
-        captured.push({ src: img.src, page: i, w: img.w, h: img.h });
-        fullText += ` ⟦P${captured.length - 1}⟧ `;
+    if (!lightMode) {
+      try {
+        const pageImages = await extractPageImages(pdfjs, page);
+        for (const img of pageImages) {
+          captured.push({ src: img.src, page: i, w: img.w, h: img.h });
+          fullText += ` ⟦P${captured.length - 1}⟧ `;
+        }
+      } catch {
+        /* skip */
       }
-    } catch {
-      /* skip */
+    } else {
+      // Free page resources as we go — books would otherwise pile up memory.
+      try { page.cleanup(); } catch { /* fine */ }
     }
+    onProgress?.(i, pdf.numPages);
   }
 
   // ── Detect chart-heavy pages and snapshot them ────────────────────────
@@ -222,8 +239,9 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
   // so the reader sees something instead of skipping over silent pages.
   const totalText = pageTextLength.reduce((a, b) => a + b, 0);
   const avgText = totalText / Math.max(1, pdf.numPages);
-  // Only bother if the doc has multiple pages of substantive text.
-  if (pdf.numPages >= 2 && avgText > 200) {
+  // Only bother if the doc has multiple pages of substantive text (and skip
+  // entirely for books — snapshotting chapter-title pages helps nobody).
+  if (!lightMode && pdf.numPages >= 2 && avgText > 200) {
     for (let i = 0; i < pdf.numPages; i++) {
       const len = pageTextLength[i]!;
       // Page is "chart-heavy" if it has < 30% of the average text, OR if it
@@ -303,6 +321,27 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
     return ` ${imageMarker(id)} `;
   });
 
+  // For book-length PDFs, split into chapters (outline first, heading
+  // heuristic as fallback) so the app can load one chapter at a time.
+  let chapters: { title: string; text: string }[] | undefined;
+  if (lightMode) {
+    const bounds = await detectChapters(pdf, pageTexts);
+    if (bounds.length >= 2) {
+      chapters = [];
+      if (bounds[0]!.startPage > 0) {
+        const fm = pageTexts.slice(0, bounds[0]!.startPage).join("\n\n").trim();
+        if (fm.split(/\s+/).length > 150) chapters.push({ title: "Front matter", text: fm });
+      }
+      for (let i = 0; i < bounds.length; i++) {
+        const from = bounds[i]!.startPage;
+        const to = i + 1 < bounds.length ? bounds[i + 1]!.startPage : pageTexts.length;
+        const t = pageTexts.slice(from, to).join("\n\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+        if (t.split(/\s+/).length > 30) chapters.push({ title: bounds[i]!.title, text: t });
+      }
+      if (chapters.length < 2) chapters = undefined;
+    }
+  }
+
   return {
     title: file.name.replace(/\.pdf$/i, ""),
     text: fullText.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
@@ -313,5 +352,41 @@ export async function extractPdf(file: File): Promise<ExtractResult> {
       droppedImages: captured.length - images.length,
     },
     images: images.length ? images : undefined,
+    chapters,
   };
+}
+
+/** Find chapter boundaries: prefer the PDF's own outline/bookmarks, fall
+ *  back to "Chapter N" / "Part N" headings at the top of a page. */
+async function detectChapters(
+  pdf: any,
+  pageTexts: string[],
+): Promise<{ title: string; startPage: number }[]> {
+  try {
+    const outline = await pdf.getOutline();
+    if (outline && outline.length >= 2) {
+      const items: { title: string; startPage: number }[] = [];
+      for (const it of outline) {
+        try {
+          let dest = it.dest;
+          if (typeof dest === "string") dest = await pdf.getDestination(dest);
+          if (!dest || !dest[0]) continue;
+          const pageIndex = await pdf.getPageIndex(dest[0]);
+          const title = String(it.title ?? "").replace(/\s+/g, " ").trim();
+          items.push({ title: title || `Section ${items.length + 1}`, startPage: pageIndex });
+        } catch { /* skip malformed outline entries */ }
+      }
+      const sorted = items
+        .sort((a, b) => a.startPage - b.startPage)
+        .filter((c, i, arr) => i === 0 || c.startPage > arr[i - 1]!.startPage);
+      if (sorted.length >= 2) return sorted;
+    }
+  } catch { /* no outline */ }
+  const found: { title: string; startPage: number }[] = [];
+  const CH_RE = /(^|\n)\s*((?:chapter|part)\s+(?:[0-9]+|[ivxlc]+)\b[^\n]{0,80})/i;
+  for (let i = 0; i < pageTexts.length; i++) {
+    const m = pageTexts[i]!.slice(0, 400).match(CH_RE);
+    if (m) found.push({ title: m[2]!.replace(/\s+/g, " ").trim().slice(0, 80), startPage: i });
+  }
+  return found.length >= 2 ? found : [];
 }

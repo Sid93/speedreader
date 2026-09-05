@@ -13,6 +13,7 @@ export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => v
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [pdfProgress, setPdfProgress] = useState<{ done: number; total: number } | null>(null);
   const [queueText, setQueueText] = useState("");
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [queueRunning, setQueueRunning] = useState(false);
@@ -53,9 +54,36 @@ export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => v
   async function run(fn: () => Promise<ExtractResult>) {
     setErr(null);
     setLoading(true);
+    setPdfProgress(null);
     try {
       const result = await fn();
       if (!result.text.trim()) throw new Error("No text extracted.");
+      // Book-length sources arrive split into chapters: save chapters 2..N
+      // into the Up-next queue and open only chapter 1 in the reader. The
+      // next chapter is offered when the current one is finished.
+      if (result.chapters && result.chapters.length > 1) {
+        const book = result.title;
+        for (let i = 1; i < result.chapters.length; i++) {
+          const c = result.chapters[i]!;
+          await saveDoc({
+            title: `${book} — ${i + 1}. ${c.title}`,
+            text: c.text,
+            source: result.source,
+            wordCount: tokenize(c.text).length,
+          });
+        }
+        const first = result.chapters[0]!;
+        onLoaded({
+          ...result,
+          title: `${book} — 1. ${first.title}`,
+          text: first.text,
+          chapters: undefined,
+          images: undefined,
+          links: undefined,
+          asides: undefined,
+        });
+        return;
+      }
       onLoaded(result);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -82,7 +110,7 @@ export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => v
               style={{ display: "none" }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) run(() => extractPdf(f));
+                if (f) run(() => extractPdf(f, (done, total) => setPdfProgress({ done, total })));
               }}
             />
             <div className="drop-icon">📄</div>
@@ -188,7 +216,11 @@ export function Home({ onLoaded, onQueued }: { onLoaded: (r: ExtractResult) => v
         )}
       </div>
 
-      {loading && <p className="meta" style={{ marginTop: 16 }}>⏳ Extracting...</p>}
+      {loading && (
+        <p className="meta" style={{ marginTop: 16 }}>
+          ⏳ Extracting{pdfProgress ? ` — page ${pdfProgress.done} of ${pdfProgress.total}` : "..."}
+        </p>
+      )}
       {err && <p style={{ marginTop: 16, color: "var(--red)" }}>❌ {err}</p>}
     </div>
   );
