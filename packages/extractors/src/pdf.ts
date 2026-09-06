@@ -134,10 +134,14 @@ async function imgObjToDataUrl(page: any, objId: string): Promise<{ src: string;
       }
     };
 
-    // Some objects resolve sync, some async via callback.
+    // Read synchronously when resolved (the usual case right after a render).
+    // NOTE: get(objId, callback) returns null — never treat that as the value.
     try {
-      const cached = page.objs.get(objId, (img: any) => tryEncode(img));
-      if (cached !== undefined) tryEncode(cached);
+      if (page.objs.has(objId)) {
+        tryEncode(page.objs.get(objId));
+      } else {
+        page.objs.get(objId, (img: any) => tryEncode(img));
+      }
     } catch {
       finish(null);
     }
@@ -148,6 +152,10 @@ async function imgObjToDataUrl(page: any, objId: string): Promise<{ src: string;
 
 async function extractPageImages(pdfjs: any, page: any): Promise<{ src: string; w: number; h: number }[]> {
   // Render the page invisibly so pdf.js populates page.objs with image data.
+  // "print" intent throughout: display renders pace themselves with
+  // requestAnimationFrame, which never fires in a hidden/background tab, so
+  // extraction would hang there. The operator list must use the same intent —
+  // each intent is a separate parse with its own object ids.
   const viewport = page.getViewport({ scale: 1 });
   const canvas = document.createElement("canvas");
   canvas.width = Math.floor(viewport.width);
@@ -155,13 +163,13 @@ async function extractPageImages(pdfjs: any, page: any): Promise<{ src: string; 
   const ctx = canvas.getContext("2d");
   if (!ctx) return [];
   try {
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvasContext: ctx, viewport, intent: "print" }).promise;
   } catch {
     return [];
   }
   let opList: any;
   try {
-    opList = await page.getOperatorList();
+    opList = await page.getOperatorList({ intent: "print" });
   } catch {
     return [];
   }
@@ -182,34 +190,26 @@ async function extractPageImages(pdfjs: any, page: any): Promise<{ src: string; 
   return imgs;
 }
 
-/** Collect embedded raster images from a page WITHOUT rendering it.
- *  getOperatorList alone makes pdf.js decode image XObjects into page.objs,
- *  so books get their figures at a fraction of the cost of a full render
- *  (measured ~4s across a 482-page book vs. minutes with per-page render). */
-async function scanEmbeddedImages(pdfjs: any, page: any): Promise<{ src: string; w: number; h: number }[]> {
-  let opList: any;
+/** Cheap check whether a page paints any image XObjects. Used by the book
+ *  path to decide which pages deserve a (costly) figure-extraction render. */
+function srlog(...a: any[]) {
+  const g = globalThis as any;
+  if (!g.__SR_DEBUG) return;
+  (g.__srlogs = g.__srlogs || []).push(a.map((x) => String(x)).join(" "));
+}
+
+async function pageHasImages(pdfjs: any, page: any): Promise<boolean> {
   try {
-    opList = await page.getOperatorList();
-  } catch {
-    return [];
-  }
-  const OPS = pdfjs.OPS;
-  const ids = new Set<string>();
-  for (let i = 0; i < opList.fnArray.length; i++) {
-    const fn = opList.fnArray[i];
-    if (fn === OPS.paintImageXObject || fn === OPS.paintJpegXObject) {
-      const objId = opList.argsArray[i]?.[0];
-      if (typeof objId === "string") ids.add(objId);
+    const opList = await page.getOperatorList();
+    const OPS = pdfjs.OPS;
+    for (let i = 0; i < opList.fnArray.length; i++) {
+      const fn = opList.fnArray[i];
+      if (fn === OPS.paintImageXObject || fn === OPS.paintJpegXObject) return true;
     }
+  } catch (e) {
+    srlog("pageHasImages threw:", e);
   }
-  const imgs: { src: string; w: number; h: number }[] = [];
-  for (const id of ids) {
-    // More than 2 images on a book page is almost always decoration.
-    if (imgs.length >= 2) break;
-    const dataUrl = await imgObjToDataUrl(page, id);
-    if (dataUrl) imgs.push(dataUrl);
-  }
-  return imgs;
+  return false;
 }
 
 /** Above this page count, skip per-page image/chart extraction: rendering
@@ -235,6 +235,7 @@ export async function extractPdf(
   const pageTexts: string[] = [];
   const pageTextLength: number[] = [];
   const pageRefs: { page: any; rendered: any }[] = []; // keep so we can snapshot later
+  const figurePages: number[] = []; // book path: 1-based pages with image XObjects
   let fullText = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -258,23 +259,68 @@ export async function extractPdf(
         /* skip */
       }
     } else {
-      // Books still get their figures — scanEmbeddedImages decodes image
-      // XObjects without the per-page canvas render that made big PDFs hang.
-      if (captured.length < BOOK_IMAGE_CAP) {
-        try {
-          const pageImages = await scanEmbeddedImages(pdfjs, page);
-          for (const img of pageImages) {
-            captured.push({ src: img.src, page: i, w: img.w, h: img.h });
-            fullText += ` ⟦P${captured.length - 1}⟧ `;
-          }
-        } catch {
-          /* skip */
-        }
-      }
+      // Books: note which pages have figures — extracted in a second pass
+      // below so this text loop stays fast.
+      if (figurePages.length < 80 && (await pageHasImages(pdfjs, page))) figurePages.push(i);
       // Free page resources as we go — books would otherwise pile up memory.
       try { page.cleanup(); } catch { /* fine */ }
     }
     onProgress?.(i, pdf.numPages);
+  }
+
+  srlog("light:", lightMode, "figurePages:", figurePages.length, figurePages.slice(0, 10).join(","));
+
+  // ── Book figure pass ──────────────────────────────────────────────────
+  // Revisit only the pages that paint images, with the proven render-first
+  // extraction (render populates page.objs; getOperatorList inside
+  // extractPageImages then reads the decoded XObjects). Crucially this runs
+  // on a SECOND document opened over the same bytes: the text loop already
+  // called getOperatorList on the first document's page proxies, and a
+  // render issued on such a page hangs forever on pdf.js's shared internal
+  // intent state (#11565) — cleanup() does not reliably reset it. Fresh
+  // document, virgin proxies, no shared state.
+  if (lightMode && figurePages.length) {
+    try {
+      const dbg = srlog;
+      const buf2 = await file.arrayBuffer();
+      const pdf2 = await pdfjs.getDocument({ data: buf2 }).promise;
+      dbg("figure pass start", figurePages.length, "pages");
+      for (const n of figurePages) {
+        if (captured.length >= BOOK_IMAGE_CAP) break;
+        try {
+          const t = Date.now();
+          const page = await pdf2.getPage(n);
+          const pageImages = (await extractPageImages(pdfjs, page)).slice(0, 2);
+          dbg("p" + n, Date.now() - t + "ms", pageImages.length, "imgs");
+          for (const img of pageImages) {
+            captured.push({ src: img.src, page: n, w: img.w, h: img.h });
+          }
+          try { page.cleanup(); } catch { /* fine */ }
+        } catch (e) {
+          dbg("p" + n, "failed", e);
+        }
+      }
+      dbg("figure pass done", captured.length, "captured");
+      try { await pdf2.destroy(); } catch { /* fine */ }
+    } catch {
+      /* figure pass is best-effort; the text is already extracted */
+    }
+    // Rebuild the full text with placeholders at each figure's page position
+    // so the no-outline fallback (single giant doc) also carries markers.
+    if (captured.length) {
+      const byPageIdx = new Map<number, number[]>();
+      captured.forEach((c, k) => {
+        const list = byPageIdx.get(c.page) ?? [];
+        list.push(k);
+        byPageIdx.set(c.page, list);
+      });
+      fullText = pageTexts
+        .map((t, idx) => {
+          const ks = byPageIdx.get(idx + 1);
+          return ks ? t + ks.map((k) => ` ⟦P${k}⟧ `).join("") : t;
+        })
+        .join("\n\n");
+    }
   }
 
   // ── Detect chart-heavy pages and snapshot them ────────────────────────

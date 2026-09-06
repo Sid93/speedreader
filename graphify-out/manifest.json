@@ -1,0 +1,577 @@
+{
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/tsconfig.base.json": {
+    "mtime": 1776924940.760486,
+    "ast_hash": "3f1085a2831d5f4935e7b8febacad148",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/package.json": {
+    "mtime": 1776941806.4483902,
+    "ast_hash": "27edc356d5e68562938e114738eb2b00",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/.claude/launch.json": {
+    "mtime": 1784466021.0343866,
+    "ast_hash": "2002435cf76a8a2d16e926bd8087a835",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/package.json": {
+    "mtime": 1788631982.6598063,
+    "ast_hash": "632fdbfab09a58dff61acf2b7d6d670c",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/manifest.json": {
+    "mtime": 1788631982.6589673,
+    "ast_hash": "7d5494626bc47ab96ec2bf72e1088647",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/tsconfig.json": {
+    "mtime": 1776927093.5416698,
+    "ast_hash": "0190649fa632d8a63584afb23582605d",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/vite.config.ts": {
+    "mtime": 1776927207.2862725,
+    "ast_hash": "030baebf57c2a466fc22cf9da19e163d",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/background.ts": {
+    "mtime": 1788631978.6088395,
+    "ast_hash": "8d8d48ed850bd484ba4155be29a89a90",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/reader/ReaderApp.tsx": {
+    "mtime": 1788611119.527777,
+    "ast_hash": "c081ca6dc567d10f5b22127b1495b173",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/reader/main.tsx": {
+    "mtime": 1776927120.0760572,
+    "ast_hash": "c64e7e979485956fcb7f2e5a55dbf123",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/package.json": {
+    "mtime": 1787052701.9195929,
+    "ast_hash": "e065b87620923682f9b7c38eeba80878",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/tsconfig.json": {
+    "mtime": 1776925013.5938091,
+    "ast_hash": "69d8d89b2222a5bb832aadd2a64faf41",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/vite.config.ts": {
+    "mtime": 1776941777.3479185,
+    "ast_hash": "563a74b23b4acad897db7b5a9f2dbebc",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/capacitor.config.ts": {
+    "mtime": 1787051252.0150545,
+    "ast_hash": "72892d8e300e2b475fa593899d059058",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/capacitor.config.json": {
+    "mtime": 1787848296.8922288,
+    "ast_hash": "3bde9f69b165100332ad55f3522e6b6f",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/AppDelegate.swift": {
+    "mtime": 1785512756.0,
+    "ast_hash": "66cf80b6a9ef034e815c7d0135b97e36",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/SceneDelegate.swift": {
+    "mtime": 1785512756.0,
+    "ast_hash": "109aded755e8064cd0c2de99e039aeb5",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/Assets.xcassets/Contents.json": {
+    "mtime": 1785512756.0,
+    "ast_hash": "31cc68f34934a99c0b0c1bebde56309c",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/Assets.xcassets/AppIcon.appiconset/Contents.json": {
+    "mtime": 1785512756.0,
+    "ast_hash": "7453c3002126811a57c38b2740f990cf",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/Assets.xcassets/Splash.imageset/Contents.json": {
+    "mtime": 1785512756.0,
+    "ast_hash": "1162e1cddd7ea769bcacdd1aa7b4ac72",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/cordova.js": {
+    "mtime": 1787848296.8544812,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/registerSW.js": {
+    "mtime": 1787848296.585396,
+    "ast_hash": "1872c500de691dce40960bb85481de07",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/workbox-01f28f5c.js": {
+    "mtime": 1787848296.583657,
+    "ast_hash": "6edd5b7af1f2616e1c2c8f58f71c0784",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/cordova_plugins.js": {
+    "mtime": 1787848296.8626828,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/sw.js": {
+    "mtime": 1787848296.585982,
+    "ast_hash": "3d4c665cb7439bbb765ec7d85357dc8e",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/assets/index-Bu1GddGz.js": {
+    "mtime": 1787848296.589061,
+    "ast_hash": "4df0acea255cde471eab927ddec93e84",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/assets/pdf.worker.min-yatZIOMy.mjs": {
+    "mtime": 1787848296.596451,
+    "ast_hash": "1b3bec25faa882380aa81a1353c7734c",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/assets/vision_bundle-Cn77874a.js": {
+    "mtime": 1787848296.591072,
+    "ast_hash": "d74c3ecc51fe5381b59f9560c6fe7cb7",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/assets/pdf-BnPRJEQ6.js": {
+    "mtime": 1787848296.5958526,
+    "ast_hash": "e98f046801c28520ca99e293259ea113",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/assets/pdf.worker.min-ocdtAcA3.js": {
+    "mtime": 1787848296.5914032,
+    "ast_hash": "6e5a499dd9a1d13a7820866c707022b0",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/assets/index-B2YXyUv1.js": {
+    "mtime": 1787848296.5939562,
+    "ast_hash": "1e545a5da774f5e5b2be3647bf1f4a80",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/CapApp-SPM/Package.swift": {
+    "mtime": 1787848296.8835075,
+    "ast_hash": "d994a0ddfe850b6d3398816ef1975701",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/CapApp-SPM/Sources/CapApp-SPM/CapApp-SPM.swift": {
+    "mtime": 1785512756.0,
+    "ast_hash": "0d92cb44a62bc3f2d73464a2e4f9a890",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/BionicView.tsx": {
+    "mtime": 1777799840.070652,
+    "ast_hash": "c5db1a51b9268e133d42909f0b3a59cf",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/App.tsx": {
+    "mtime": 1788631133.5862262,
+    "ast_hash": "85afefcee30fa3ea7bd5048cd879c415",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/main.tsx": {
+    "mtime": 1776925026.0175374,
+    "ast_hash": "4282e2ebed101c550b189702008dba61",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/demo.ts": {
+    "mtime": 1787831402.4364095,
+    "ast_hash": "01b441d463b577b1fec076a62b194ec4",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Home.tsx": {
+    "mtime": 1788632869.9664795,
+    "ast_hash": "76e421ead0705b5b16d07341dcba9733",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Reader.tsx": {
+    "mtime": 1788631156.4983213,
+    "ast_hash": "3d140e70184b44beb00096005bbfc49a",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Library.tsx": {
+    "mtime": 1784985033.2360826,
+    "ast_hash": "40d2cf365ec81faa3d243b919980a156",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/SentenceFlash.tsx": {
+    "mtime": 1777799820.7623067,
+    "ast_hash": "31563ddb209e873623c82ba894724415",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/drillWords.ts": {
+    "mtime": 1776957764.703535,
+    "ast_hash": "12e8f7991ae3661318a7964cc2224095",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Benchmark.tsx": {
+    "mtime": 1776962018.0200875,
+    "ast_hash": "dbf7fa505f68804f56639141b6540c45",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Stats.tsx": {
+    "mtime": 1776962045.5053408,
+    "ast_hash": "aa22c8d6418f7adad9588921ac0d4eab",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/useCameraAssist.ts": {
+    "mtime": 1785138898.8235376,
+    "ast_hash": "ebf33151f809876fd6dd440e9610bdd0",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Drills.tsx": {
+    "mtime": 1777799680.6290703,
+    "ast_hash": "e6e10c802856fc7e04e51894ce6cae18",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Quiz.tsx": {
+    "mtime": 1776962114.9635978,
+    "ast_hash": "02df894ace9a88a45feb46499ddbba0e",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/drills/PeripheralColumns.tsx": {
+    "mtime": 1776957789.6649642,
+    "ast_hash": "287d4cea8f1d2783d59b4a3f4086816d",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/drills/FixationFlash.tsx": {
+    "mtime": 1776956781.2284222,
+    "ast_hash": "50f87f5b1044e6bb6d2a49583948735e",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/drills/WordPair.tsx": {
+    "mtime": 1776957781.7558885,
+    "ast_hash": "b89eb279d50620031cd3a2bad7c26e7d",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/drills/EyeExercise.tsx": {
+    "mtime": 1777799665.5037906,
+    "ast_hash": "504c76a2a8f1fd32eb1a0dc25702fdbc",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/package.json": {
+    "mtime": 1776926128.4007435,
+    "ast_hash": "a1de947b550d9b8b5a9b1fa9ef37c0bc",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/tsconfig.json": {
+    "mtime": 1776926132.0667717,
+    "ast_hash": "b92fb80148438bc0d3e16443dc0116b9",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/progress.ts": {
+    "mtime": 1776926156.5435078,
+    "ast_hash": "ca855ab297d5a2825d23b12fb0e85fa8",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/stats.ts": {
+    "mtime": 1776961953.590278,
+    "ast_hash": "59b4ebb1303f0aabd408fefed2e332f0",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/index.ts": {
+    "mtime": 1776961974.6463978,
+    "ast_hash": "a8f0c5d67c566f1448b3acb82cc2f5b5",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/library.ts": {
+    "mtime": 1788611036.7304635,
+    "ast_hash": "8072750874d2c671e3cf5b6a05946717",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/db.ts": {
+    "mtime": 1788611035.418077,
+    "ast_hash": "63fa5a43888b926b78d30f794ae025f4",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/package.json": {
+    "mtime": 1784985074.0595415,
+    "ast_hash": "95a074fc8202e091ec7253f962966ca0",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/tsconfig.json": {
+    "mtime": 1776925418.4281998,
+    "ast_hash": "b92fb80148438bc0d3e16443dc0116b9",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/article.ts": {
+    "mtime": 1788611026.0052462,
+    "ast_hash": "01cd60b5a14e41980693b12f71dbafe1",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/epub.ts": {
+    "mtime": 1776939524.2268577,
+    "ast_hash": "e10f256f8ed7992e37e7da87ec1eedab",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/text.ts": {
+    "mtime": 1776925428.4601967,
+    "ast_hash": "4ebd45c86dd4743f5550962cb47381e0",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/pdf.ts": {
+    "mtime": 1788632858.634821,
+    "ast_hash": "6581283962c6fc3037b277b2f396ae31",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/index.ts": {
+    "mtime": 1788632863.7440248,
+    "ast_hash": "4ad972982d003ab8ef2c6078793a09ad",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/__tests__/article.test.ts": {
+    "mtime": 1788611144.6323776,
+    "ast_hash": "de0c22c2d1a18d3c8da82def96c887a4",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/package.json": {
+    "mtime": 1776924947.769017,
+    "ast_hash": "2e65f2b4f915c64e8597ca54c03181aa",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/tsconfig.json": {
+    "mtime": 1776924950.807773,
+    "ast_hash": "e3aaffb489ce1247c376c2ca6886b4f8",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/tokenize.ts": {
+    "mtime": 1784984796.7904744,
+    "ast_hash": "047f754fd2e0ed62c8aa73d446d1f860",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/scheduler.ts": {
+    "mtime": 1784984842.9853609,
+    "ast_hash": "904a2a351b1951420a647bcc7b9a60ed",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/bionic.ts": {
+    "mtime": 1776940728.9775321,
+    "ast_hash": "571b82f79a45ea46b945f66d5a742f3f",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/orp.ts": {
+    "mtime": 1776924961.4976404,
+    "ast_hash": "cf35bec7ba60782586998cfb75a4288a",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/index.ts": {
+    "mtime": 1784984811.4060163,
+    "ast_hash": "210f9401654fe9e85c9417a3d40cb3b3",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/textrank.ts": {
+    "mtime": 1776963951.3139496,
+    "ast_hash": "e8e68e4508f4c82a014a69590728068a",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/quiz.ts": {
+    "mtime": 1776943558.3757205,
+    "ast_hash": "ee6dd22b71511cac5547cfcea3c5a01f",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/engine/src/__tests__/engine.test.ts": {
+    "mtime": 1784985122.6641867,
+    "ast_hash": "c638dc6edb230a0f988518f42f1cec13",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/README.md": {
+    "mtime": 1776932678.7910194,
+    "ast_hash": "6c9c7dbd1d057207905742edf0bd70ec",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/PLAN.md": {
+    "mtime": 1776923981.720301,
+    "ast_hash": "9287683064f6f2a50f9befc8bdb42086",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/pnpm-workspace.yaml": {
+    "mtime": 1776924936.8262234,
+    "ast_hash": "15e915330bfbfeab7601d69ae0a8a2ac",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/README.md": {
+    "mtime": 1787831826.5894506,
+    "ast_hash": "430a1783f063dc8f02101f6aa584a8d7",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/legacy/rsvp-reader.html": {
+    "mtime": 1776924928.4925501,
+    "ast_hash": "2fd12061c3e7f823c1405206c39d0dff",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/README.md": {
+    "mtime": 1776927222.1411219,
+    "ast_hash": "bd9582a68083f901ff21abccc818f976",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/public/README.md": {
+    "mtime": 1776927182.528113,
+    "ast_hash": "656910d0b4f96dd4c7e0aa7787c07bb6",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/reader/index.html": {
+    "mtime": 1776927115.9892163,
+    "ast_hash": "731f21f49e4ebcf7064b798bfa376571",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/index.html": {
+    "mtime": 1776963517.3828242,
+    "ast_hash": "fe7ccb353ac14586c422f6a1f1d3ae8f",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/index.html": {
+    "mtime": 1787848296.585068,
+    "ast_hash": "ebee2ea732e8052fbd1d173e504118c4",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/privacy.html": {
+    "mtime": 1787848296.584985,
+    "ast_hash": "60110a128ce91dabfba83113779294de",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/CapApp-SPM/README.md": {
+    "mtime": 1785512756.0,
+    "ast_hash": "d256f6b5922d4249607779141357d565",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/privacy.html": {
+    "mtime": 1787243337.9458637,
+    "ast_hash": "60110a128ce91dabfba83113779294de",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/.github/workflows/deploy.yml": {
+    "mtime": 1776932877.4836845,
+    "ast_hash": "d7fedce56094882a6ffecf5fe02b6aec",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/.github/workflows/ci.yml": {
+    "mtime": 1784985128.4236572,
+    "ast_hash": "e7f216f7fb0e5d98b54c2856b85371c9",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/iphone-overlay.png": {
+    "mtime": 1787831826.582658,
+    "ast_hash": "4f707c33683908146dd42e8b087254ed",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/ipad-library.png": {
+    "mtime": 1787831826.5762403,
+    "ast_hash": "e8463c40cd339b0a468817440a1a2836",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/iphone-reader.png": {
+    "mtime": 1787831826.583508,
+    "ast_hash": "d942f2454393bdc7a4fb5d7e71fb71a4",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/ipad-overlay.png": {
+    "mtime": 1787831826.5789382,
+    "ast_hash": "e36d646675294c297db66446f03361a5",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/iphone-links.png": {
+    "mtime": 1787831826.5820029,
+    "ast_hash": "18b9e59cae0dee70d607fd41ab8bc2b1",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/iphone-library.png": {
+    "mtime": 1787831826.5810225,
+    "ast_hash": "3fc968cebfd3f88f80aacffce2c4c605",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/ipad-links.png": {
+    "mtime": 1787831826.5778322,
+    "ast_hash": "fdc42324f757cc32167df2116d7c4919",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/store-assets/screenshots/ipad-reader.png": {
+    "mtime": 1787831826.5800812,
+    "ast_hash": "b8a7215e82d4b171923b79e67707bc91",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png": {
+    "mtime": 1787051289.1339817,
+    "ast_hash": "7477852357af09d703a042d190c4efb7",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732.png": {
+    "mtime": 1785512756.0,
+    "ast_hash": "958532b95c3e7d4997327dc977b80600",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732-1.png": {
+    "mtime": 1785512756.0,
+    "ast_hash": "958532b95c3e7d4997327dc977b80600",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732-2.png": {
+    "mtime": 1785512756.0,
+    "ast_hash": "958532b95c3e7d4997327dc977b80600",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/icon-192.png": {
+    "mtime": 1787848296.584194,
+    "ast_hash": "266bf321010d1e773c9a309431e665f2",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/favicon.svg": {
+    "mtime": 1787848296.5846827,
+    "ast_hash": "fad9f7288eab905d0b2a1b0a42cd12bd",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/icon-512.png": {
+    "mtime": 1787848296.585589,
+    "ast_hash": "4f64b22830d5bb6debe49b54e3c60b75",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/demo/chart3.png": {
+    "mtime": 1787848296.5921304,
+    "ast_hash": "46c6c00f4d339b122868311cab184972",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/demo/chart2.png": {
+    "mtime": 1787848296.5934868,
+    "ast_hash": "9df80f1c24106d724c26dcb03246728d",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/ios/App/App/public/demo/chart1.png": {
+    "mtime": 1787848296.5942953,
+    "ast_hash": "8da7b2265d35f743691e411ca120a944",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/icon-192.png": {
+    "mtime": 1776941817.721066,
+    "ast_hash": "266bf321010d1e773c9a309431e665f2",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/favicon.svg": {
+    "mtime": 1776941784.8509982,
+    "ast_hash": "fad9f7288eab905d0b2a1b0a42cd12bd",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/icon-512.png": {
+    "mtime": 1776941817.8487704,
+    "ast_hash": "4f64b22830d5bb6debe49b54e3c60b75",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/demo/chart3.png": {
+    "mtime": 1787831393.1933448,
+    "ast_hash": "46c6c00f4d339b122868311cab184972",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/demo/chart2.png": {
+    "mtime": 1787831392.999962,
+    "ast_hash": "9df80f1c24106d724c26dcb03246728d",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/demo/chart1.png": {
+    "mtime": 1787831392.7997894,
+    "ast_hash": "8da7b2265d35f743691e411ca120a944",
+    "semantic_hash": ""
+  }
+}
