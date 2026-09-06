@@ -212,6 +212,57 @@ async function pageHasImages(pdfjs: any, page: any): Promise<boolean> {
   return false;
 }
 
+/** Figure/table captions ("Figure 6.1. Percent of teens who…") are set in a
+ *  different type size and are not part of the running prose — speed-reading
+ *  them mid-sentence is jarring. Pull them out of the text; they are shown
+ *  beneath their figure in the reader instead. */
+const CAPTION_RE = /^(?:figure|table|exhibit|chart)\s+\d+(?:\.\d+)*\b/i;
+
+/** Item-level caption split. Captions are set in a smaller type size than
+ *  the body (e.g. 11.3pt vs 15pt in Haidt), so: find the dominant body font
+ *  height, then capture any run of smaller-type items that STARTS with
+ *  "Figure N.M" / "Table N" — running prose that merely mentions a figure
+ *  is body-sized and stays. The run ends at the next body-sized item. */
+function splitCaptionItems(items: any[]): { body: any[]; captions: string[] } {
+  const weight = new Map<number, number>();
+  for (const it of items) {
+    if (typeof it.str !== "string" || !it.str.trim()) continue;
+    const h = Math.round(it.height ?? 0);
+    if (!h) continue;
+    weight.set(h, (weight.get(h) ?? 0) + it.str.length);
+  }
+  let bodyH = 0;
+  let best = -1;
+  for (const [h, wgt] of weight) if (wgt > best) { best = wgt; bodyH = h; }
+  if (!bodyH) return { body: items, captions: [] };
+
+  const body: any[] = [];
+  const captions: string[] = [];
+  let cap: string[] | null = null;
+  for (const it of items) {
+    const s = typeof it.str === "string" ? it.str : "";
+    const h = it.height ?? 0;
+    const small = h > 0 && h < bodyH * 0.85;
+    if (cap) {
+      // Zero-height items are inter-word spacers; keep consuming while small.
+      if (h === 0 || small) {
+        if (s) cap.push(s);
+        continue;
+      }
+      captions.push(cap.join(" ").replace(/\s+/g, " ").trim());
+      cap = null;
+      // fall through: this body-sized item belongs to the flow
+    }
+    if (small && CAPTION_RE.test(s.trim())) {
+      cap = [s];
+      continue;
+    }
+    body.push(it);
+  }
+  if (cap) captions.push(cap.join(" ").replace(/\s+/g, " ").trim());
+  return { body, captions };
+}
+
 /** Above this page count, skip per-page image/chart extraction: rendering
  *  every page of an ebook to canvas takes minutes and can crash the tab.
  *  Long documents still get embedded figures via scanEmbeddedImages. */
@@ -230,41 +281,63 @@ export async function extractPdf(
   const lightMode = pdf.numPages > IMAGE_EXTRACTION_MAX_PAGES;
 
   // Two-pass: capture images into placeholders, filter, then renumber.
-  type Cap = { src: string; page: number; w: number; h: number; isPageSnapshot?: boolean };
+  type Cap = { src: string; page: number; w: number; h: number; isPageSnapshot?: boolean; alt?: string };
   const captured: Cap[] = [];
   const pageTexts: string[] = [];
   const pageTextLength: number[] = [];
   const pageRefs: { page: any; rendered: any }[] = []; // keep so we can snapshot later
   const figurePages: number[] = []; // book path: 1-based pages with image XObjects
+  const pageCaptions: { page: number; text: string }[] = [];
   let fullText = "";
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const pageText = pageItemsToText(content.items as any[]);
-    pageTexts.push(pageText);
-    pageTextLength.push(pageText.length);
-    if (!lightMode) pageRefs.push({ page, rendered: null });
-    if (i > 1) fullText += "\n\n";
-    fullText += pageText;
+    const { body, captions } = splitCaptionItems(content.items as any[]);
+    const cleaned = pageItemsToText(body);
+    const raw = captions.length ? pageItemsToText(content.items as any[]) : cleaned;
 
+    let pageHasFigure = false;
+    const marks: string[] = [];
     if (!lightMode) {
       try {
         const pageImages = await extractPageImages(pdfjs, page);
         for (const img of pageImages) {
           captured.push({ src: img.src, page: i, w: img.w, h: img.h });
-          fullText += ` ⟦P${captured.length - 1}⟧ `;
+          marks.push(` ⟦P${captured.length - 1}⟧ `);
         }
+        pageHasFigure = pageImages.length > 0;
       } catch {
         /* skip */
       }
     } else {
       // Books: note which pages have figures — extracted in a second pass
       // below so this text loop stays fast.
-      if (figurePages.length < 80 && (await pageHasImages(pdfjs, page))) figurePages.push(i);
+      if (figurePages.length < 80 && (await pageHasImages(pdfjs, page))) {
+        figurePages.push(i);
+        pageHasFigure = true;
+      }
       // Free page resources as we go — books would otherwise pile up memory.
       try { page.cleanup(); } catch { /* fine */ }
     }
+
+    // Keep captions out of the reading flow only when there is a figure to
+    // attach them to — this page or the one before (captions often land at
+    // the top of the page after their figure). Otherwise leave the block in
+    // the text: better read awkwardly than silently lost.
+    const prevHadFigure = figurePages.includes(i - 1) || captured.some((c) => c.page === i - 1);
+    let pageText = cleaned;
+    if (captions.length && (pageHasFigure || prevHadFigure)) {
+      for (const c of captions) pageCaptions.push({ page: i, text: c });
+    } else if (captions.length) {
+      pageText = raw;
+    }
+
+    pageTexts.push(pageText);
+    pageTextLength.push(pageText.length);
+    if (!lightMode) pageRefs.push({ page, rendered: null });
+    if (i > 1) fullText += "\n\n";
+    fullText += pageText + marks.join("");
     onProgress?.(i, pdf.numPages);
   }
 
@@ -321,6 +394,16 @@ export async function extractPdf(
         })
         .join("\n\n");
     }
+  }
+
+  // Attach the pulled captions to their figures: same page first, then the
+  // page before (figure bottom-of-page, caption top-of-next), then after.
+  for (const cap of pageCaptions) {
+    const target =
+      captured.find((c) => c.page === cap.page && !c.alt) ??
+      captured.find((c) => c.page === cap.page - 1 && !c.alt) ??
+      captured.find((c) => c.page === cap.page + 1 && !c.alt);
+    if (target) target.alt = cap.text;
   }
 
   // ── Detect chart-heavy pages and snapshot them ────────────────────────
@@ -411,7 +494,7 @@ export async function extractPdf(
   fullText = fullText.replace(/⟦P(\d+)⟧/g, (_m, idxStr: string) => {
     const c = captured[Number(idxStr)]!;
     const id = images.length;
-    images.push({ id, src: c.src, page: c.page });
+    images.push({ id, src: c.src, page: c.page, alt: c.alt });
     return ` ${imageMarker(id)} `;
   });
 
@@ -439,7 +522,7 @@ export async function extractPdf(
           let t = pageTexts[p]!;
           for (const c of byPage.get(p + 1) ?? []) {
             const id = imgs.length;
-            imgs.push({ id, src: c.src, page: c.page });
+            imgs.push({ id, src: c.src, page: c.page, alt: c.alt });
             t += ` ${imageMarker(id)} `;
           }
           pieces.push(t);
