@@ -393,8 +393,10 @@ export async function extractPdf(
     seenSrc.add(c.src);
   }
 
-  // Drop runs of 2+ adjacent placeholders (image-heavy footers/headers).
-  fullText = fullText.replace(/⟦P\d+⟧(?:\s*⟦P\d+⟧)+/g, (run) => {
+  // Drop runs of 3+ adjacent placeholders (image-heavy footers/headers).
+  // A pair is usually two legitimate figures sharing a page — Haidt's
+  // Anxious Generation p.193 carries two charts back to back.
+  fullText = fullText.replace(/⟦P\d+⟧(?:\s*⟦P\d+⟧){2,}/g, (run) => {
     // Mark every placeholder in the run as dropped, keep zero or one.
     const idxs = [...run.matchAll(/⟦P(\d+)⟧/g)].map((m) => Number(m[1]));
     for (const idx of idxs) drop.add(idx);
