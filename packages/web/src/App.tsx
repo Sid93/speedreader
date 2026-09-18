@@ -8,8 +8,9 @@ import { Reader } from "./Reader.js";
 import { Library } from "./Library.js";
 import { Stats } from "./Stats.js";
 import { Drills } from "./Drills.js";
+import { Bank } from "./Bank.js";
 
-type Tab = "home" | "library" | "drills" | "stats";
+type Tab = "home" | "library" | "bank" | "drills" | "stats";
 
 type Theme = "system" | "light" | "dark";
 
@@ -100,6 +101,7 @@ export function App() {
           <nav className="nav">
             <button className={tab === "home" ? "tab active" : "tab"} onClick={() => setTab("home")}>New</button>
             <button className={tab === "library" ? "tab active" : "tab"} onClick={() => setTab("library")}>Library</button>
+            <button className={tab === "bank" ? "tab active" : "tab"} onClick={() => setTab("bank")}>Bank</button>
             <button className={tab === "drills" ? "tab active" : "tab"} onClick={() => setTab("drills")}>Drills</button>
             <button className={tab === "stats" ? "tab active" : "tab"} onClick={() => setTab("stats")}>Stats</button>
           </nav>
@@ -124,6 +126,7 @@ export function App() {
         </>
       )}
       {tab === "library" && <Library onOpen={setDoc} />}
+      {tab === "bank" && <Bank onOpenDoc={setDoc} />}
       {tab === "drills" && <Drills />}
       {tab === "stats" && <Stats />}
     </div>

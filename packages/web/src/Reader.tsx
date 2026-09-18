@@ -6,14 +6,16 @@ import {
   getProgress,
   recordWords,
   listDocs,
+  saveClip,
   type LibraryDoc,
 } from "@speedreader/storage";
 import { BionicView } from "./BionicView.js";
 import { useCameraAssist } from "./useCameraAssist.js";
 import { Quiz } from "./Quiz.js";
 import { SentenceFlash } from "./SentenceFlash.js";
+import { ArticleView } from "./ArticleView.js";
 
-type Mode = "rsvp" | "bionic" | "flash";
+type Mode = "rsvp" | "bionic" | "flash" | "article";
 
 const SPEED_PRESETS = [150, 300, 450, 600, 900];
 
@@ -47,6 +49,10 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
   useEffect(() => { localStorage.setItem("sr.fontFamily", fontFamily); }, [fontFamily]);
   const [showQuiz, setShowQuiz] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  /** Word index captured by 🔖 while speed reading; ArticleView pre-selects
+   *  and scrolls to that paragraph. Null when Article mode is opened directly. */
+  const [bookmarkAt, setBookmarkAt] = useState<number | null>(null);
+  const [clipToast, setClipToast] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [warmup, setWarmup] = useState(true);
   const [metronome, setMetronome] = useState(false);
@@ -298,11 +304,30 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
         case "f": case "F": e.preventDefault(); setFocusMode((v) => !v); break;
         case "+": case "=": e.preventDefault(); setFontSize((s) => Math.min(140, s + 4)); break;
         case "-": case "_": e.preventDefault(); setFontSize((s) => Math.max(20, s - 4)); break;
+        case "b": case "B": e.preventDefault(); bookmarkHere(); break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  /** 🔖 from RSVP: pause, then open the article at the passage being read
+   *  with that paragraph pre-selected, one click from the Memory bank. */
+  function bookmarkHere() {
+    const s = schedRef.current;
+    if (s?.getState().isPlaying) {
+      s.pause();
+      setIsPlaying(false);
+    }
+    // Under skim the token stream is shorter than the full article; map the
+    // position proportionally so the article opens near the right passage.
+    const at = skimMode
+      ? Math.round((indexRef.current / Math.max(1, words.length)) * doc.wordCount)
+      : indexRef.current;
+    setBookmarkAt(at);
+    setFocusMode(false);
+    setMode("article");
+  }
 
   function toggle() {
     const s = schedRef.current;
@@ -417,6 +442,9 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
         <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
         <button className={mode === "flash" ? "mode active" : "mode"} onClick={() => setMode("flash")} title="Sentence-at-a-time flash">🎬 Flash</button>
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
+        <button className={mode === "article" ? "mode active" : "mode"}
+          onClick={() => { setBookmarkAt(null); setMode("article"); }}
+          title="Read the article as-is; click sections to save them (B while reading bookmarks the current spot)">📃 Article</button>
         <button className="mode" onClick={() => setShowQuiz(true)} title="Test your recall">🧠 Quiz</button>
         <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
         <button className={settingsOpen ? "mode active" : "mode"} onClick={() => setSettingsOpen((o) => !o)}
@@ -494,7 +522,30 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
         );
       })()}
 
-      {mode === "flash" ? (
+      {clipToast && <div className="hum-toast">{clipToast}</div>}
+
+      {mode === "article" ? (
+        <ArticleView
+          doc={doc}
+          currentIndex={index}
+          bookmarkAt={bookmarkAt}
+          fontFamily={fontFamily}
+          onSave={async (sel) => {
+            await saveClip({ docId: doc.id, docTitle: doc.title, ...sel });
+            setClipToast("🔖 Saved to Memory bank");
+            setTimeout(() => setClipToast(null), 2400);
+          }}
+          onReadFrom={(wordIndex) => {
+            // Map full-article position back into the (possibly skimmed) stream.
+            const at = skimMode
+              ? Math.round((wordIndex / Math.max(1, doc.wordCount)) * words.length)
+              : wordIndex;
+            schedRef.current?.seek(Math.min(at, Math.max(0, words.length - 1)));
+            setBookmarkAt(null);
+            setMode("rsvp");
+          }}
+        />
+      ) : mode === "flash" ? (
         <SentenceFlash text={effectiveText} fontSize={Math.max(18, Math.round(fontSize * 0.42))} fontFamily={fontFamily} wpm={wpm} />
       ) : mode === "bionic" ? (
         <>
@@ -608,6 +659,7 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
             <button className="primary play" onClick={toggle}>{isPlaying ? "⏸" : "▶"}</button>
             <button onClick={() => schedRef.current?.step(1)} title="Next (→)">⏩</button>
             {!forwardOnly && <button onClick={() => schedRef.current?.seek(words.length - 1)} title="End">⏭</button>}
+            <button onClick={bookmarkHere} title="Bookmark this spot in the article (B)">🔖</button>
           </div>
         </div>
       </div>
@@ -789,7 +841,7 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
           </div>
         )}
         <div className="meta" style={{ marginTop: 12 }}>
-          <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±25 WPM · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
+          <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±25 WPM · <kbd>B</kbd> bookmark · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
         </div>
       </div>
       </>

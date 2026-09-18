@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tokenize, getORP, createScheduler, chunkLenAt, type Scheduler } from "@speedreader/engine";
 import { extractArticle, imageIdForToken } from "@speedreader/extractors";
-import { saveDoc, saveProgress, getProgress, recordWords, type LibraryDoc } from "@speedreader/storage";
+import { saveDoc, saveProgress, getProgress, recordWords, saveClip, type LibraryDoc } from "@speedreader/storage";
 import { bionicSplit, sentenceStartAtOrBefore, buildQuiz, type QuizQuestion } from "@speedreader/engine";
+import { ArticleView } from "./ArticleView.js";
+import { BankPanel } from "./BankPanel.js";
 
-type Mode = "rsvp" | "bionic";
+type Mode = "rsvp" | "bionic" | "article" | "bank";
 
 function Quiz({ text, onClose }: { text: string; onClose: () => void }) {
   const [seed, setSeed] = useState(Date.now() & 0xffff);
@@ -195,6 +197,8 @@ function Player({ doc }: { doc: LibraryDoc }) {
   const [warmup, setWarmup] = useState(true);
   const [metronome, setMetronome] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [bookmarkAt, setBookmarkAt] = useState<number | null>(null);
+  const [clipToast, setClipToast] = useState<string | null>(null);
   const [activeImageId, setActiveImageId] = useState<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const schedRef = useRef<Scheduler | null>(null);
@@ -372,11 +376,25 @@ function Player({ doc }: { doc: LibraryDoc }) {
         case "f": case "F": e.preventDefault(); setFocusMode((v) => !v); break;
         case "+": case "=": e.preventDefault(); setFontSize((s) => Math.min(140, s + 4)); break;
         case "-": case "_": e.preventDefault(); setFontSize((s) => Math.max(20, s - 4)); break;
+        case "b": case "B": e.preventDefault(); bookmarkHere(); break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  /** 🔖 from RSVP: pause, then open the article at the passage being read
+   *  with that paragraph pre-selected, one click from the Memory bank. */
+  function bookmarkHere() {
+    const s = schedRef.current;
+    if (s?.getState().isPlaying) {
+      s.pause();
+      setIsPlaying(false);
+    }
+    setBookmarkAt(indexRef.current);
+    setFocusMode(false);
+    setMode("article");
+  }
 
   function toggle() {
     const s = schedRef.current;
@@ -426,6 +444,11 @@ function Player({ doc }: { doc: LibraryDoc }) {
       <div className="mode-switch">
         <button className={mode === "rsvp" ? "mode active" : "mode"} onClick={() => setMode("rsvp")}>⚡ RSVP</button>
         <button className={mode === "bionic" ? "mode active" : "mode"} onClick={() => setMode("bionic")}>📖 Bionic</button>
+        <button className={mode === "article" ? "mode active" : "mode"}
+          onClick={() => { setBookmarkAt(null); setMode("article"); }}
+          title="Read the article as-is; click sections to save them (B while reading bookmarks the current spot)">📃 Article</button>
+        <button className={mode === "bank" ? "mode active" : "mode"} onClick={() => setMode("bank")}
+          title="Saved passages">🗂 Bank</button>
         <button className="mode" onClick={() => setShowQuiz(true)}>🧠 Quiz</button>
         <button className="mode" onClick={() => setFocusMode(true)} title="Distraction-free (F)">🎯 Focus</button>
         <button className={settingsOpen ? "mode active" : "mode"} onClick={() => setSettingsOpen((o) => !o)}
@@ -473,7 +496,28 @@ function Player({ doc }: { doc: LibraryDoc }) {
         );
       })()}
 
-      {mode === "bionic" ? (
+      {clipToast && <div className="hum-toast">{clipToast}</div>}
+
+      {mode === "article" ? (
+        <ArticleView
+          doc={doc}
+          currentIndex={index}
+          bookmarkAt={bookmarkAt}
+          fontFamily="Georgia, serif"
+          onSave={async (sel) => {
+            await saveClip({ docId: doc.id, docTitle: doc.title, ...sel });
+            setClipToast("🔖 Saved to Memory bank");
+            setTimeout(() => setClipToast(null), 2400);
+          }}
+          onReadFrom={(wordIndex) => {
+            schedRef.current?.seek(Math.min(wordIndex, Math.max(0, words.length - 1)));
+            setBookmarkAt(null);
+            setMode("rsvp");
+          }}
+        />
+      ) : mode === "bank" ? (
+        <BankPanel />
+      ) : mode === "bionic" ? (
         <BionicView text={doc.text} fontSize={Math.max(14, Math.round(fontSize * 0.36))} />
       ) : (
       <div className="reader">
@@ -542,6 +586,7 @@ function Player({ doc }: { doc: LibraryDoc }) {
           <button className="primary play" onClick={toggle}>{isPlaying ? "⏸" : "▶"}</button>
           <button onClick={() => schedRef.current?.step(1)}>⏩</button>
           <button onClick={() => schedRef.current?.seek(words.length - 1)}>⏭</button>
+          <button onClick={bookmarkHere} title="Bookmark this spot in the article (B)">🔖</button>
         </div>
       </div>
       )}

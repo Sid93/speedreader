@@ -40,6 +40,19 @@ export interface Progress {
   updatedAt: number;
 }
 
+/** A passage the reader bookmarked and saved to the Memory bank. */
+export interface Clip {
+  id: string;
+  docId: string;
+  docTitle: string;
+  /** The saved passage, marker tokens stripped. */
+  text: string;
+  /** Word range in the source doc (start inclusive, end exclusive). */
+  wordStart: number;
+  wordEnd: number;
+  savedAt: number;
+}
+
 export interface StatsRow {
   id: "global";
   totalWordsRead: number;
@@ -68,10 +81,15 @@ interface SchemaV1 extends DBSchema {
     key: "global";
     value: StatsRow;
   };
+  bank: {
+    key: string;
+    value: Clip;
+    indexes: { "by-savedAt": number };
+  };
 }
 
 const DB_NAME = "speedreader";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<SchemaV1>> | null = null;
 
@@ -88,6 +106,10 @@ export function getDB(): Promise<IDBPDatabase<SchemaV1>> {
         }
         if (!db.objectStoreNames.contains("stats")) {
           db.createObjectStore("stats", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("bank")) {
+          const store = db.createObjectStore("bank", { keyPath: "id" });
+          store.createIndex("by-savedAt", "savedAt");
         }
       },
     });
