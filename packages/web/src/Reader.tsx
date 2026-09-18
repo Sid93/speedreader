@@ -291,8 +291,8 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
         case " ": e.preventDefault(); toggle(); break;
         case "ArrowLeft": e.preventDefault(); if (!forwardOnly) schedRef.current?.step(-1); break;
         case "ArrowRight": e.preventDefault(); schedRef.current?.step(1); break;
-        case "ArrowUp": e.preventDefault(); setWpm((w) => Math.min(1000, w + 50)); break;
-        case "ArrowDown": e.preventDefault(); setWpm((w) => Math.max(100, w - 50)); break;
+        case "ArrowUp": e.preventDefault(); setWpm((w) => Math.min(1000, w + 25)); break;
+        case "ArrowDown": e.preventDefault(); setWpm((w) => Math.max(100, w - 25)); break;
         case "r": case "R": schedRef.current?.seek(0); setIsPlaying(false); break;
         case "Escape": if (focusMode) { e.preventDefault(); setFocusMode(false); } break;
         case "f": case "F": e.preventDefault(); setFocusMode((v) => !v); break;
@@ -789,7 +789,7 @@ export function Reader({ doc, onBack, onNext }: { doc: LibraryDoc; onBack: () =>
           </div>
         )}
         <div className="meta" style={{ marginTop: 12 }}>
-          <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±50 WPM · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
+          <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> step · <kbd>↑</kbd>/<kbd>↓</kbd> ±25 WPM · <kbd>R</kbd> rewind · <kbd>F</kbd> focus
         </div>
       </div>
       </>

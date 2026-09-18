@@ -365,8 +365,8 @@ function Player({ doc }: { doc: LibraryDoc }) {
         case " ": e.preventDefault(); toggle(); break;
         case "ArrowLeft": e.preventDefault(); schedRef.current?.step(-1); break;
         case "ArrowRight": e.preventDefault(); schedRef.current?.step(1); break;
-        case "ArrowUp": e.preventDefault(); setWpm((w) => Math.min(1000, w + 50)); break;
-        case "ArrowDown": e.preventDefault(); setWpm((w) => Math.max(100, w - 50)); break;
+        case "ArrowUp": e.preventDefault(); setWpm((w) => Math.min(1000, w + 25)); break;
+        case "ArrowDown": e.preventDefault(); setWpm((w) => Math.max(100, w - 25)); break;
         case "r": case "R": schedRef.current?.seek(0); setIsPlaying(false); break;
         case "Escape": if (focusMode) { e.preventDefault(); setFocusMode(false); } break;
         case "f": case "F": e.preventDefault(); setFocusMode((v) => !v); break;
