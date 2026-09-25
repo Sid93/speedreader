@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/manifest.json": {
-    "mtime": 1788631982.6589673,
-    "ast_hash": "7d5494626bc47ab96ec2bf72e1088647",
+    "mtime": 1789703770.507087,
+    "ast_hash": "9e56a734e159f31b5ee3d935f9b43fb5",
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/tsconfig.json": {
@@ -40,8 +40,8 @@
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/reader/ReaderApp.tsx": {
-    "mtime": 1788611119.527777,
-    "ast_hash": "c081ca6dc567d10f5b22127b1495b173",
+    "mtime": 1789703755.1261644,
+    "ast_hash": "eaf043cc8fcd7abbeb3e23dd309495c0",
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/reader/main.tsx": {
@@ -170,8 +170,8 @@
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/App.tsx": {
-    "mtime": 1788631133.5862262,
-    "ast_hash": "85afefcee30fa3ea7bd5048cd879c415",
+    "mtime": 1789703584.2462208,
+    "ast_hash": "b1afe6021b9c2d49651d82be88ce3fdc",
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/main.tsx": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Reader.tsx": {
-    "mtime": 1788631156.4983213,
-    "ast_hash": "3d140e70184b44beb00096005bbfc49a",
+    "mtime": 1789703556.5851383,
+    "ast_hash": "4012ef83de0c4cdb3509c9443ff02644",
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Library.tsx": {
@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/index.ts": {
-    "mtime": 1776961974.6463978,
-    "ast_hash": "a8f0c5d67c566f1448b3acb82cc2f5b5",
+    "mtime": 1789703468.2102847,
+    "ast_hash": "d695c75d2d6b7e5727048bfc5e213ac6",
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/library.ts": {
@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/db.ts": {
-    "mtime": 1788611035.418077,
-    "ast_hash": "63fa5a43888b926b78d30f794ae025f4",
+    "mtime": 1789703457.5983763,
+    "ast_hash": "25b044510847cb6aabd7cf8450fff774",
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/package.json": {
@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/pdf.ts": {
-    "mtime": 1788632858.634821,
-    "ast_hash": "6581283962c6fc3037b277b2f396ae31",
+    "mtime": 1788665062.3852358,
+    "ast_hash": "333782fd9fd9b497001abc7248e661e1",
     "semantic_hash": ""
   },
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extractors/src/index.ts": {
@@ -572,6 +572,31 @@
   "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/public/demo/chart1.png": {
     "mtime": 1787831392.7997894,
     "ast_hash": "8da7b2265d35f743691e411ca120a944",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/reader/BankPanel.tsx": {
+    "mtime": 1789703710.3927746,
+    "ast_hash": "03ae1b574650e04da1c51d7953219511",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/extension/src/reader/ArticleView.tsx": {
+    "mtime": 1789703694.8984487,
+    "ast_hash": "030ccd5665a5d7be5ec8006fda441994",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/ArticleView.tsx": {
+    "mtime": 1789703491.4968486,
+    "ast_hash": "030ccd5665a5d7be5ec8006fda441994",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/web/src/Bank.tsx": {
+    "mtime": 1789703573.8759806,
+    "ast_hash": "f38f67bec39c4af952596561c3c82929",
+    "semantic_hash": ""
+  },
+  "/Users/siddhantsaboo/Desktop/salesrepclaud/speedreader/packages/storage/src/bank.ts": {
+    "mtime": 1789703464.5034652,
+    "ast_hash": "c0a4b702d0089094fb818e7cc67c9c34",
     "semantic_hash": ""
   }
 }

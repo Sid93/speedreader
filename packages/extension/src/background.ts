@@ -49,6 +49,10 @@ function extractFromDom(): {
     ".button-wrapper", "[class*='captioned-button']", "[class*='button-wrap']",
     ".install-substack-app", "[data-component-name*='Share']",
     "[data-component-name*='Subscribe']", ".digest-cta",
+    // Screen-reader-only chart fallbacks (The Economist ships each chart's
+    // labels and a data table this way) — that text lives ON the image.
+    "[aria-hidden='true']", "[hidden]", ".sr-only", ".screen-reader-only",
+    "[class*='visually-hidden']", "[class*='visuallyhidden']",
   ].join(",");
 
   const images: { id: number; src: string; alt?: string }[] = [];
@@ -71,6 +75,46 @@ function extractFromDom(): {
       try {
         if (e.matches(SKIP_SELECTOR)) continue;
       } catch { /* exotic elements can throw on matches() */ }
+      // Text hidden from sighted readers duplicates what's drawn on screen
+      // (chart label overlays, collapsed sections) — never speed-read it.
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        try {
+          const cs = getComputedStyle(e);
+          if (cs.display === "none" || cs.visibility === "hidden") continue;
+          const he = e as HTMLElement;
+          // sr-only pattern: clipped to a 1px box.
+          if (he.offsetWidth <= 1 && he.offsetHeight <= 1 && (he.innerText || "").length > 0) continue;
+        } catch { /* detached or exotic elements */ }
+      }
+      if (e.tagName === "FIGURE") {
+        // A figure's text belongs to its media — chart axis labels, legend
+        // text, fallback data tables, photo credits. Keep the image and the
+        // caption; everything else stays on the picture.
+        const figImgsBefore = images.length;
+        for (const img of Array.from(e.querySelectorAll("img"))) {
+          const im = img as HTMLImageElement;
+          const src = im.currentSrc || im.src || "";
+          const w = im.naturalWidth || Number(im.getAttribute("width")) || 0;
+          if (/^https?:\/\//i.test(src) && (w === 0 || w >= 80) && !seenSrc.has(src)) {
+            seenSrc.add(src);
+            images.push({ id: images.length, src, alt: im.alt || undefined });
+            out.push(`\n\n‹IMG:${images.length - 1}›\n\n`);
+          }
+        }
+        const capEl = e.querySelector("figcaption");
+        const cap = capEl ? ((capEl as HTMLElement).innerText || "").replace(/\s+/g, " ").trim() : "";
+        const lastImg = images[images.length - 1];
+        if (cap && images.length > figImgsBefore && lastImg) {
+          lastImg.alt = lastImg.alt ? `${lastImg.alt} — ${cap}` : cap;
+        }
+        // No image found (e.g., a pure-SVG or canvas chart, which we can't
+        // capture): walk normally so at least the caption isn't lost.
+        if (images.length === figImgsBefore) {
+          walk(e);
+          out.push("\n\n");
+        }
+        continue;
+      }
       if (e.tagName === "FIGCAPTION") {
         // A caption identifies its picture — attach it to the most recent
         // image so the overlay shows it under the photo, and keep it out of
