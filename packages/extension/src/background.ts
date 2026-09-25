@@ -31,7 +31,7 @@ chrome.runtime.onInstalled.addListener(() => {
 function extractFromDom(): {
   title: string;
   text: string;
-  images: { id: number; src: string; alt?: string }[];
+  images: { id: number; src: string; alt?: string; fallbackSrc?: string }[];
   links: { text: string; href: string }[];
   asides: { kind: "quote" | "embed" | "promo"; text: string; at: number }[];
 } {
@@ -55,7 +55,7 @@ function extractFromDom(): {
     "[class*='visually-hidden']", "[class*='visuallyhidden']",
   ].join(",");
 
-  const images: { id: number; src: string; alt?: string }[] = [];
+  const images: { id: number; src: string; alt?: string; fallbackSrc?: string }[] = [];
   const seenSrc = new Set<string>();
   const links: { text: string; href: string }[] = [];
   const seenHref = new Set<string>();
@@ -86,10 +86,35 @@ function extractFromDom(): {
           if (he.offsetWidth <= 1 && he.offsetHeight <= 1 && (he.innerText || "").length > 0) continue;
         } catch { /* detached or exotic elements */ }
       }
-      if (e.tagName === "FIGURE") {
+      const isFigureLike =
+        e.tagName === "FIGURE" || /(^|\s)g-artboard(\s|$)/.test(e.getAttribute("class") || "");
+      if (isFigureLike) {
         // A figure's text belongs to its media — chart axis labels, legend
         // text, fallback data tables, photo credits. Keep the image and the
         // caption; everything else stays on the picture.
+        const capEl = e.querySelector("figcaption");
+        const cap = capEl ? ((capEl as HTMLElement).innerText || "").replace(/\s+/g, " ").trim() : "";
+        // "Rich" figure: labels/annotations drawn OVER a base layer (svg,
+        // canvas, or ai2html-style absolutely-positioned text). Grabbing the
+        // bare <img> would lose the labels — mark it for a rendered-page
+        // snapshot instead (taken by the background after extraction).
+        const he = e as HTMLElement;
+        const hasLayers = !!e.querySelector("svg, canvas, [class*='g-aiAbs'], [style*='position:absolute'], [style*='position: absolute']");
+        const visibleText = (he.innerText || "").replace(cap, "").replace(/\s+/g, " ").trim();
+        const rich = hasLayers && visibleText.length > 10 && he.offsetWidth >= 200 && he.offsetHeight >= 100;
+        if (rich) {
+          const baseImg = e.querySelector("img") as HTMLImageElement | null;
+          const snapId = images.length;
+          e.setAttribute("data-sr-snap", String(snapId));
+          images.push({
+            id: snapId,
+            src: "‹snap›",
+            alt: cap || undefined,
+            fallbackSrc: baseImg ? (baseImg.currentSrc || baseImg.src || undefined) : undefined,
+          });
+          out.push(`\n\n‹IMG:${snapId}›\n\n`);
+          continue;
+        }
         const figImgsBefore = images.length;
         for (const img of Array.from(e.querySelectorAll("img"))) {
           const im = img as HTMLImageElement;
@@ -101,8 +126,6 @@ function extractFromDom(): {
             out.push(`\n\n‹IMG:${images.length - 1}›\n\n`);
           }
         }
-        const capEl = e.querySelector("figcaption");
-        const cap = capEl ? ((capEl as HTMLElement).innerText || "").replace(/\s+/g, " ").trim() : "";
         const lastImg = images[images.length - 1];
         if (cap && images.length > figImgsBefore && lastImg) {
           lastImg.alt = lastImg.alt ? `${lastImg.alt} — ${cap}` : cap;
@@ -259,6 +282,80 @@ function extractFromDom(): {
   return { title, text, images, links, asides };
 }
 
+/** Capture each figure tagged data-sr-snap as the user actually sees it —
+ *  base image PLUS the label overlays (city names, values) that live in
+ *  separate DOM layers and would be lost by grabbing the <img> alone.
+ *  Scrolls the figure into view, screenshots the tab, crops to the figure,
+ *  and restores the scroll position afterwards. */
+async function snapshotRichFigures(
+  tabId: number,
+  windowId: number,
+  images: { id: number; src: string; alt?: string; fallbackSrc?: string }[],
+): Promise<void> {
+  const pending = images.filter((i) => i.src === "‹snap›");
+  if (pending.length === 0) return;
+  const [orig] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => ({ x: scrollX, y: scrollY }),
+  });
+  for (const img of pending.slice(0, 12)) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (id: number) => {
+          document.querySelector(`[data-sr-snap='${id}']`)?.scrollIntoView({ block: "center" });
+        },
+        args: [img.id],
+      });
+      // Let lazy layers, fonts, and scroll-triggered reveals settle.
+      await new Promise((r) => setTimeout(r, 650));
+      const [rectRes] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (id: number) => {
+          const el = document.querySelector(`[data-sr-snap='${id}']`);
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: r.x, y: r.y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight };
+        },
+        args: [img.id],
+      });
+      const rect = rectRes?.result;
+      if (!rect || rect.w < 50 || rect.h < 50) throw new Error("figure not measurable");
+      const shot = await chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 85 });
+      const bmp = await createImageBitmap(await (await fetch(shot)).blob());
+      const scale = bmp.width / rect.vw; // device px per css px
+      const x0 = Math.max(0, rect.x);
+      const y0 = Math.max(0, rect.y);
+      const sw = (Math.min(rect.x + rect.w, rect.vw) - x0) * scale;
+      const sh = (Math.min(rect.y + rect.h, rect.vh) - y0) * scale;
+      if (sw < 80 || sh < 80) throw new Error("figure offscreen");
+      const canvas = new OffscreenCanvas(Math.round(sw), Math.round(sh));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+      ctx.drawImage(bmp, x0 * scale, y0 * scale, sw, sh, 0, 0, sw, sh);
+      const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.85 });
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      img.src = `data:image/jpeg;base64,${btoa(bin)}`;
+    } catch {
+      // Best effort: fall back to the unlabeled base image, or drop it.
+      img.src = img.fallbackSrc ?? "";
+    }
+    // captureVisibleTab is rate-limited (~2/sec) — space the captures out.
+    await new Promise((r) => setTimeout(r, 450));
+  }
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (x: number, y: number) => scrollTo(x, y),
+      args: [orig?.result?.x ?? 0, orig?.result?.y ?? 0],
+    });
+  } catch { /* fine */ }
+}
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return;
 
@@ -283,6 +380,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
       const r = res?.result;
       if (r && r.text && r.text.length > 400) {
+        // Rich figures (label overlays on a base image) were tagged during
+        // extraction — replace their placeholders with rendered snapshots.
+        try {
+          if (tab.windowId !== undefined) await snapshotRichFigures(tab.id, tab.windowId, r.images);
+        } catch { /* snapshots are best-effort */ }
+        r.images = r.images
+          .filter((i) => i.src && i.src !== "‹snap›")
+          .map(({ fallbackSrc: _fb, ...rest }) => rest);
         staged = {
           mode: "dom",
           title: r.title || tab.title || tab.url,
