@@ -5,7 +5,7 @@ import { imageMarker } from "./index.js";
 // silently drop rather than pause on. Better to miss a real image now and
 // then than to make every page a slideshow of menus and pixels.
 const JUNK_ALT_RE = /^(menu|search|close|arrow|sign\s*in|subscribe|login|logo|icon|burger|hamburger|spotify|youtube|twitter|x\s*\/\s*twitter|linkedin|apple\s*podcasts?|rss|email|share|tag|profile|avatar|footer|header)/i;
-const JUNK_URL_RE = /(^|\/)(icons?|logos?|assets|sprites?|pixel|favicon|trans_?1x1|spacer|blank)(\/|[._-])|(1x1\.gif)|(google-analytics|googletagmanager|doubleclick|facebook\.com\/tr)/i;
+const JUNK_URL_RE = /(^|\/)(icons?|logos?|assets|sprites?|pixel|favicon|trans_?1x1|spacer|blank)(\/|[._-])|(1x1\.gif)|(google-analytics|googletagmanager|doubleclick|facebook\.com\/tr)|([._-]logo\.(?:png|jpe?g|gif|svg))|(img\.etimg\.com\/photo\/\d+\.cms$)/i;
 // Things that strongly suggest "this is content (a chart/figure/diagram)"
 // even if the URL or alt has otherwise generic shape.
 const CHART_HINT_RE = /(chart|graph|figure|diagram|plot|fig[_-]?\d|viz|visuali[sz]ation|infographic)/i;
@@ -60,6 +60,49 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
   const bodyStart = raw.indexOf("Markdown Content:");
   let body = bodyStart >= 0 ? raw.slice(bodyStart + "Markdown Content:".length) : raw;
 
+  // ── Portal-page slicing ───────────────────────────────────────────────
+  // Some news portals (Economic Times etc.) defeat jina's readability and
+  // come back as the FULL page: tickers, nav, related-story rails. Two safe
+  // cuts: start at the article's own H1 when it matches the page title, and
+  // stop at known end-of-article footer markers.
+  {
+    const norm = (s: string) =>
+      s.toLowerCase().replace(/&amp;/g, "&").replace(/[^a-z0-9]+/g, " ").trim();
+    const nt = norm(title);
+    if (nt.length > 10) {
+      const re = /^#\s+(.+)$/gm;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(body)) !== null) {
+        if (norm(m[1]!) === nt) {
+          if (m.index > 400) body = body.slice(m.index);
+          break;
+        }
+      }
+    }
+    const ENDERS = [
+      "(You can now subscribe to our",
+      "\nRead More News on",
+      "Download The Economic Times News App",
+      "(Catch all the ",
+      "\nPrime Exclusives\n",
+    ];
+    let cut = -1;
+    for (const e of ENDERS) {
+      const at = body.indexOf(e);
+      // Absolute guard, not proportional: on these portals the article is a
+      // thin slice at the top and the junk BELOW it dominates the length.
+      if (at > 300 && (cut === -1 || at < cut)) cut = at;
+    }
+    if (cut > 0) body = body.slice(0, cut);
+
+    // Article-toolbar droppings that survive readability (full-line only).
+    body = body.replace(
+      /^(SECTIONS|Rate Story|Follow us|Font Size|Abc (?:Small|Medium|Large)|Save|Print|Comment|Share|Bookmark|"?Email this article"?\)?|Synopsis)\s*$/gm,
+      "",
+    );
+    body = body.replace(/^.{0,60}Last Updated: .{0,60}$/gm, "");
+  }
+
   // ── Markdown cleanup, in an order safe for image markers ──────────────
   // 1. Pull out fenced code blocks first (we keep the inner text but drop fences).
   body = body.replace(/```[a-zA-Z0-9_-]*\n([\s\S]*?)```/g, (_m, inner) => `\n${inner}\n`);
@@ -75,9 +118,24 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
   const captured: Cap[] = [];
   body = body.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_m, alt: string, src: string) => {
     if (!/^https?:\/\//i.test(src)) return "";
+    // Economic Times embeds article figures as tiny thumbs; the same msid
+    // at width-640 serves the full-size image.
+    if (/^https?:\/\/img\.etimg\.com\/thumb\/msid-\d+/i.test(src)) {
+      src = src
+        .replace(/,width-\d+/g, ",width-640")
+        .replace(/,height-\d+/g, "")
+        .replace(/,resizemode-\d+/g, ",resizemode-4");
+    }
     captured.push({ src, alt: (alt ?? "").trim() });
     return ` ⟦I${captured.length - 1}⟧ `;
   });
+
+  // Agency credits glued to a figure ("…jpg)ET Bureau") are picture
+  // furniture, not prose — drop the credit token right after a marker.
+  body = body.replace(
+    /(⟦I\d+⟧)\s*(?:ETMarkets\.com|ET Bureau|ET Online|Reuters|PTI|AFP|ANI|IANS|Agencies|Getty Images|AP|Bloomberg|TIL Creatives)(?=\s|$)/g,
+    "$1 ",
+  );
 
   // Drop junk + dupes by replacing their placeholders with empty space.
   const seenSrc = new Set<string>();
@@ -121,6 +179,28 @@ export function parseJinaMarkdown(raw: string, url = ""): ExtractResult {
     }
     return label;
   });
+
+  // 4a½. Portal toolbar droppings — bare now that link wrappers are gone
+  //      (full-line matches only, so prose is never touched). Also drop a
+  //      standalone repeat of the headline inside the body.
+  body = body.replace(
+    /^[ \t]*"?\(?(SECTIONS|Rate Story|Follow us|Font Size|Abc (?:Small|Medium|Large)|Save|Print|Comment|Share|Bookmark|Email this article)"?\)?[ \t]*$/gm,
+    "",
+  );
+  {
+    const t = title.trim();
+    if (t.length > 10) {
+      let seen = 0;
+      body = body
+        .split("\n")
+        .filter((line) => {
+          // The H1 counts as the first occurrence so bare repeats drop.
+          if (line.replace(/^#{1,6}\s*/, "").trim() === t) return ++seen === 1;
+          return true;
+        })
+        .join("\n");
+    }
+  }
 
   // 4b. Figure captions: an italic-only line straight after an image is the
   //     picture's caption, not body text — attach it to the image (the

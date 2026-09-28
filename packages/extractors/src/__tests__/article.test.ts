@@ -228,3 +228,27 @@ describe("parseJinaMarkdown — asides", () => {
     expect(r.asides![0]!.at).toBeGreaterThan(0);
   });
 });
+
+describe("parseJinaMarkdown — portal pages (Economic Times shape)", () => {
+  const NAV = "Benchmarks\n\nNifty23,140 77\n\nFEATURED FUNDS Some Fund 5Y Return 20%\n\nEnter search text\n\nHome\n\nMarkets\n\nMore nav filler so the pre-heading region is clearly longer than the four hundred character guard used by the slicer. Even more filler text keeps going here to make absolutely sure that threshold is comfortably crossed in this synthetic fixture, mimicking the enormous shell of a news portal page with tickers and menus everywhere.\n";
+  const ARTICLE =
+    "# Bulls tire out on D-Street\n\nSECTIONS\n\nBulls tire out on D-Street\n\nET Bureau Last Updated: Sep 28, 2026, 06:56 AM IST\n\nSynopsis\n\nA short synopsis paragraph.\n\n![Image 8: lead](https://img.etimg.com/thumb/msid-1234,width-210,height-158,imgsize-99,resizemode-75/lead.jpg)ETMarkets.com\n\nThe real body paragraph with several words of prose.\n\n_(You can now subscribe to our [ETMarkets WhatsApp channel](https://example.com/wa))_\n\nRead More News on\n\n![Image 9: rail](https://img.etimg.com/thumb/msid-9999,imgsize-1,width-138,height-104/prime/rail-thumb.jpg)\n\nRelated junk story teaser text.";
+
+  it("slices to the article H1, cuts the footer, upgrades ET thumbs", () => {
+    const r = parseJinaMarkdown(jina(NAV + ARTICLE, "Bulls tire out on D-Street"));
+    expect(r.text.startsWith("Bulls tire out on D-Street")).toBe(true);
+    expect(r.text).not.toContain("FEATURED FUNDS");
+    expect(r.text).not.toContain("Read More News on");
+    expect(r.text).not.toContain("Related junk story");
+    expect(r.text).not.toContain("SECTIONS");
+    expect(r.text).not.toContain("Last Updated");
+    expect(r.text).not.toContain("ETMarkets.com");
+    // Headline appears exactly once.
+    expect(r.text.split("Bulls tire out on D-Street").length - 1).toBe(1);
+    // One image: the lead, upgraded to width-640 with height/resizemode dropped.
+    expect(r.images).toHaveLength(1);
+    expect(r.images![0]!.src).toContain("width-640");
+    expect(r.images![0]!.src).not.toContain("height-");
+    expect(markers(r.text)).toHaveLength(1);
+  });
+});
