@@ -356,6 +356,69 @@ async function snapshotRichFigures(
   } catch { /* fine */ }
 }
 
+/** Extract a tab's page (live DOM first — sees paywalled content the user
+ *  is logged in for — with r.jina.ai URL mode as fallback) and stage it for
+ *  the reader. Shared by the context menu and the popup's "read this page"
+ *  button (iPad Safari has no extension context menus). */
+async function stagePage(tab: chrome.tabs.Tab): Promise<boolean> {
+  if (!tab.id || !/^https?:/i.test(tab.url ?? "")) return false;
+  let staged: Record<string, unknown> | null = null;
+  try {
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: extractFromDom,
+    });
+    const r = res?.result;
+    if (r && r.text && r.text.length > 400) {
+      // Rich figures (label overlays on a base image) were tagged during
+      // extraction — replace their placeholders with rendered snapshots.
+      try {
+        if (tab.windowId !== undefined) await snapshotRichFigures(tab.id, tab.windowId, r.images);
+      } catch { /* snapshots are best-effort */ }
+      r.images = r.images
+        .filter((i) => i.src && i.src !== "‹snap›")
+        .map(({ fallbackSrc: _fb, ...rest }) => rest);
+      staged = {
+        mode: "dom",
+        title: r.title || tab.title || tab.url,
+        text: r.text,
+        images: r.images.length ? r.images : undefined,
+        links: r.links.length ? r.links : undefined,
+        asides: r.asides.length ? r.asides : undefined,
+        url: tab.url,
+        at: Date.now(),
+      };
+    }
+  } catch {
+    // scripting not allowed on this page — fall through to URL mode
+  }
+  if (!staged) {
+    staged = {
+      mode: "url",
+      title: tab.title ?? tab.url,
+      url: tab.url,
+      at: Date.now(),
+    };
+  }
+  await chrome.storage.local.set({ [STAGED_KEY]: staged });
+  return true;
+}
+
+// The popup asks for this on platforms without extension context menus
+// (iPadOS): stage whatever page is active in the browser, then the popup
+// reloads itself to show it.
+chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, sendResponse) => {
+  if (msg?.type === "sr-extract-active") {
+    (async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const ok = tab ? await stagePage(tab) : false;
+      sendResponse({ ok });
+    })();
+    return true; // async response
+  }
+  return undefined;
+});
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return;
 
@@ -369,48 +432,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       },
     });
   } else if (info.menuItemId === MENU_PAGE && tab.url) {
-    // First choice: read the live DOM (sees paywalled content the user is
-    // logged in for). Fall back to URL mode (r.jina.ai) if the page yields
-    // too little text — e.g. injection blocked on chrome:// or store pages.
-    let staged: Record<string, unknown> | null = null;
-    try {
-      const [res] = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: extractFromDom,
-      });
-      const r = res?.result;
-      if (r && r.text && r.text.length > 400) {
-        // Rich figures (label overlays on a base image) were tagged during
-        // extraction — replace their placeholders with rendered snapshots.
-        try {
-          if (tab.windowId !== undefined) await snapshotRichFigures(tab.id, tab.windowId, r.images);
-        } catch { /* snapshots are best-effort */ }
-        r.images = r.images
-          .filter((i) => i.src && i.src !== "‹snap›")
-          .map(({ fallbackSrc: _fb, ...rest }) => rest);
-        staged = {
-          mode: "dom",
-          title: r.title || tab.title || tab.url,
-          text: r.text,
-          images: r.images.length ? r.images : undefined,
-          links: r.links.length ? r.links : undefined,
-          asides: r.asides.length ? r.asides : undefined,
-          url: tab.url,
-          at: Date.now(),
-        };
-      }
-    } catch {
-      // scripting not allowed on this page — fall through to URL mode
-    }
-    if (!staged) {
-      staged = {
-        mode: "url",
-        title: tab.title ?? tab.url,
-        url: tab.url,
-        at: Date.now(),
-      };
-    }
-    await chrome.storage.local.set({ [STAGED_KEY]: staged });
+    await stagePage(tab);
   } else {
     return;
   }

@@ -118,6 +118,17 @@ function BionicView({ text, fontSize }: { text: string; fontSize: number }) {
 const SPEED_PRESETS = [150, 300, 450, 600, 900];
 const STAGED_KEY = "sr.staged";
 
+// iPadOS Safari has no extension context menus — the popup itself must be
+// able to trigger extraction of the page it was opened over.
+const HAS_TOUCH = typeof window !== "undefined" && "ontouchstart" in window;
+
+async function extractActivePage(): Promise<void> {
+  try {
+    await chrome.runtime.sendMessage({ type: "sr-extract-active" });
+  } catch { /* background worker may need a beat — reload shows whatever staged */ }
+  location.reload();
+}
+
 type Staged =
   | { mode: "text"; title: string; text: string; at: number }
   | { mode: "url"; title: string; url: string; at: number }
@@ -173,7 +184,18 @@ export function ReaderApp() {
     })();
   }, []);
 
-  if (err) return <div className="wrap"><div className="error">{err}</div></div>;
+  if (err) return (
+    <div className="wrap">
+      <div className="error">{err}</div>
+      <button className="primary" style={{ marginTop: 14 }} onClick={extractActivePage}>
+        ⚡ Speed read the current page
+      </button>
+      <p className="meta" style={{ marginTop: 10 }}>
+        Reads the page open in the browser right now. On a Mac you can also
+        right-click any page and choose "Speed read this page".
+      </p>
+    </div>
+  );
   if (!doc) return <div className="wrap"><div className="meta">⏳ Extracting...</div></div>;
   return <Player doc={doc} />;
 }
@@ -423,6 +445,12 @@ function Player({ doc }: { doc: LibraryDoc }) {
         <div className="meta" style={{ textAlign: "right" }}>
           <strong>{title}</strong>
           <div>{words.length.toLocaleString()} words · ~{Math.ceil(words.length / wpm)} min @ {wpm} WPM</div>
+          {HAS_TOUCH && (
+            <button style={{ marginTop: 6 }} onClick={extractActivePage}
+              title="Extract and read the page currently open in the browser">
+              ⚡ Read current page
+            </button>
+          )}
         </div>
       </header>
       )}
