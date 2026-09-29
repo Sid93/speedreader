@@ -404,6 +404,23 @@ async function stagePage(tab: chrome.tabs.Tab): Promise<boolean> {
   return true;
 }
 
+/** Show the reader in a full tab, REUSING an existing reader tab when one
+ *  is open (reloading it picks up the freshly staged doc) so back-to-back
+ *  reads don't pile up tabs. */
+async function openReaderTab(): Promise<void> {
+  const readerUrl = chrome.runtime.getURL("src/reader/index.html");
+  try {
+    const existing = await chrome.tabs.query({ url: `${readerUrl}*` });
+    const t = existing[0];
+    if (t?.id !== undefined) {
+      await chrome.tabs.reload(t.id);
+      await chrome.tabs.update(t.id, { active: true });
+      return;
+    }
+  } catch { /* query can fail on some platforms — fall through to create */ }
+  await chrome.tabs.create({ url: readerUrl });
+}
+
 // The popup asks for this on platforms without extension context menus
 // (iPadOS): stage whatever page is active in the browser and open the
 // reader in a full tab — same experience as the desktop context menu.
@@ -412,9 +429,7 @@ chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, sendRespo
     (async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const ok = tab ? await stagePage(tab) : false;
-      if (ok) {
-        await chrome.tabs.create({ url: chrome.runtime.getURL("src/reader/index.html") });
-      }
+      if (ok) await openReaderTab();
       sendResponse({ ok });
     })();
     return true; // async response
@@ -440,7 +455,5 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
 
-  await chrome.tabs.create({
-    url: chrome.runtime.getURL("src/reader/index.html"),
-  });
+  await openReaderTab();
 });
