@@ -123,10 +123,17 @@ const STAGED_KEY = "sr.staged";
 const HAS_TOUCH = typeof window !== "undefined" && "ontouchstart" in window;
 
 async function extractActivePage(): Promise<void> {
+  let ok = false;
   try {
-    await chrome.runtime.sendMessage({ type: "sr-extract-active" });
-  } catch { /* background worker may need a beat — reload shows whatever staged */ }
-  location.reload();
+    const res = await chrome.runtime.sendMessage({ type: "sr-extract-active" });
+    ok = !!res?.ok;
+  } catch { /* background worker may need a beat */ }
+  if (ok) {
+    // The background opened the reader in a full tab — this popup is done.
+    window.close();
+  } else {
+    location.reload();
+  }
 }
 
 type Staged =

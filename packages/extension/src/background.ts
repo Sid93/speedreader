@@ -405,13 +405,16 @@ async function stagePage(tab: chrome.tabs.Tab): Promise<boolean> {
 }
 
 // The popup asks for this on platforms without extension context menus
-// (iPadOS): stage whatever page is active in the browser, then the popup
-// reloads itself to show it.
+// (iPadOS): stage whatever page is active in the browser and open the
+// reader in a full tab — same experience as the desktop context menu.
 chrome.runtime.onMessage.addListener((msg: { type?: string }, _sender, sendResponse) => {
   if (msg?.type === "sr-extract-active") {
     (async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const ok = tab ? await stagePage(tab) : false;
+      if (ok) {
+        await chrome.tabs.create({ url: chrome.runtime.getURL("src/reader/index.html") });
+      }
       sendResponse({ ok });
     })();
     return true; // async response
